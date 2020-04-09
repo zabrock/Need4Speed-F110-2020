@@ -1,2 +1,0 @@
-ackermann_msgs:need4speed_runtime_monitoring:vesc/vesc:vesc/vesc_ackermann:vesc/vesc_driver:vesc/vesc_msgs
--DCATKIN_DEVEL_PREFIX=/home/zeke/need4speed_ws/devel -DCMAKE_INSTALL_PREFIX=/home/zeke/need4speed_ws/install -G Unix Makefiles
