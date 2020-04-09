@@ -4,8 +4,4 @@ This repo is used by the team Need4Speed for submission of lab assignments as pa
 
 Our weekly meeting time is on Wednesday at 10 AM.
 
-The first week's submission requires the ROS serial package as installed via 
-```
-sudo apt-get install ros-<distro>-serial
-```
-where ```<distro>``` is replaced by the ROS distribution being used. The ```vesc``` and ```ackermann-msgs``` packages are also used, but come already installed in the workspace.
+As stated in lab, the first week's lab work is entirely individual, so no submission material relevant to the lab is included in this repo for the ROS lab.
