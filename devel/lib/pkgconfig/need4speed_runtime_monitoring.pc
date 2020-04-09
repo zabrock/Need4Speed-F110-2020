@@ -1,0 +1,8 @@
+prefix=/home/zeke/need4speed_ws/devel
+
+Name: need4speed_runtime_monitoring
+Description: Description of need4speed_runtime_monitoring
+Version: 0.0.1
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
