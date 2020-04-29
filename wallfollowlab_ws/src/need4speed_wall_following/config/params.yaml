@@ -1,0 +1,47 @@
+# # Parameters for PID error calculation
+
+# LIDAR-specific parameters - considered constant
+# Minimum/maximum range acceptable for distance calculation, meters
+min_distance: 0.1
+max_distance: 30.0
+# Minimum/maximum angle and angle increment of LIDAR sensor
+# Min/max in degrees, angle_increment in radians
+min_angle: -45.0
+max_angle: 225.0
+angle_increment: rad(0.00436515314505)
+
+# Error calculation parameters - updated at every iteration from
+# parameter server
+# Lookahead distance for future error estimation, meters
+lookahead_distance: 0.3
+# Angle between rays used for wall distance calculation, degrees
+theta: 60
+# Desired distance from the wall, meters
+desired_distance: 0.5
+# Wall following method: left, center, or right
+follow_method: "left"
+# LIDAR range filtering parameters; set filter_lidar to true
+# to apply a moving average filter of width filter_width to the
+# ranges obtained by the LIDAR
+filter_lidar: true
+filter_width: 51
+
+# ---------------- #
+
+# # Parameters for PID control calculation - updated at every
+# # iteration from the parameter server
+
+# PD gains to apply to the error obtained from the pid_error node
+kp: -60.0
+kd: -1.0
+# Speeds to apply based on the steering thresholds max_speed_threshold
+# and med_speed_threshold; speeds in m/s, thresholds in degrees
+max_speed: 1.5
+med_speed: 1.0
+min_speed: 0.5
+max_speed_threshold: deg(10)
+med_speed_threshold: deg(20)
+# Coefficient of first-order IIR filter applied to incoming error value
+lp_filter_coefficient: 0.3
+# Coefficient of first-order IIR filter applied to error derivative value
+deriv_filter_coefficient: 0.5

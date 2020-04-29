@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find racecar_simulator)/launch/simulator.launch">
+        <arg name="map" value="$(find racecar_simulator)/maps/map_trackporto.yaml"/>
+  </include>
+
+  <!-- output="screen" allows us to see print statements-->
+  <!-- Load the PID error and control nodes with the parameters from a YAML file -->
+  <node pkg="wall_following" name="pid_error_node" type="pid_error.py" output="screen">
+    <rosparam command="load" file="$(find brock_wall_following)/config/params.yaml"/>
+  </node>
+  <node pkg="wall_following" name="control_node" type="control.py" output="screen">
+    <rosparam command="load" file="$(find brock_wall_following)/config/params.yaml"/>
+  </node>
+  <node pkg="wall_following" name="sim_connector_node" type="sim_connector.py" output="screen"/>
+
+</launch>

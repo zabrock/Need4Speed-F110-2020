@@ -1,0 +1,2 @@
+std_msgs/Float64 running_avg_abs_error
+std_msgs/Float64 running_max_abs_error
