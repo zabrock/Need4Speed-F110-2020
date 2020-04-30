@@ -10,8 +10,6 @@ from std_msgs.msg import Float64, String
 from need4speed_gap_finding.msg import gaps
 from need4speed_wall_following.msg import TurnsPossible
 import pdb
-import message_filters
-
 pub = rospy.Publisher('turns_possible', TurnsPossible, queue_size=10)
 
 # You can define constants in Python as uppercase global names like these.
@@ -105,7 +103,8 @@ def gapCallback(gap_msg):
   MAX_GAP_DISTANCE = rospy.get_param("/turn_identifier_node/max_gap_distance")
   MIN_GAP_WIDTH = rospy.get_param("/turn_identifier_node/min_gap_width")
   THETA = rospy.get_param("/turn_identifier_node/theta")
-  MIN_CROSS_THRESH = rospy.get_param("turn_identifier_node/cross_product_threshold")
+  MIN_CROSS_THRESH = rospy.get_param("/turn_identifier_node/cross_product_threshold")
+  CENTER_DIST_THRESH = rospy.get_param("/turn_identifier_node/center_distance_threshold")
 
   if rospy.get_param("/turn_identifier_node/filter_lidar"):
     scan_msg = filter_lidar(scan_msg)
@@ -123,34 +122,46 @@ def gapCallback(gap_msg):
   rightWallPt = (0, -b)
   left_possible = False
   right_possible = False
+  center_possible = False
   for gap_width, gap_center in zip(gap_msg.gap_widths, gap_msg.gap_centers):
     if gap_width < MIN_GAP_WIDTH:
       continue
-    # Calculate distance to gap to make sure it's close enough to be considered
-    if gap_center.x**2 + gap_center.y**2 > MAX_GAP_DISTANCE**2:
-      continue
-    # Check gap against left wall vector first
+
     left_gap_vector = getGapVector(leftWallPt,gap_center)
     left_cross_prod = getCrossProduct(leftWallVec,left_gap_vector)
-    
-    if left_cross_prod > MIN_CROSS_THRESH:
-      rospy.loginfo("Left turn detected")
-      left_possible = True
-    else:
-      right_gap_vector = getGapVector(rightWallPt, gap_center)
-      right_cross_prod = getCrossProduct(rightWallVec,right_gap_vector)
-      if right_cross_prod < -MIN_CROSS_THRESH:
+    right_gap_vector = getGapVector(rightWallPt, gap_center)
+    right_cross_prod = getCrossProduct(rightWallVec,right_gap_vector)
+    # Calculate distance to gap; if greater than max_distance,
+    # check if between two walls to determine that center following is possible 
+    if gap_center.x**2 + gap_center.y**2 > CENTER_DIST_THRESH**2:
+      #if left_cross_prod < MIN_CROSS_THRESH and right_cross_prod > -MIN_CROSS_THRESH:
+      #  center_possible = True
+      center_possible = True
+    # Check gap against left wall vector first
+    elif gap_center.x**2 + gap_center.y**2 < MAX_GAP_DISTANCE**2:
+      if left_cross_prod > MIN_CROSS_THRESH:
+        rospy.loginfo("Left turn detected")
+        left_possible = True
+      elif right_cross_prod < -MIN_CROSS_THRESH:
         rospy.loginfo("Right turn detected")
         right_possible = True
   
 
   msg = TurnsPossible()
-  if left_possible and right_possible:
-    msg.turns_possible = TurnsPossible.BOTH
+  if left_possible and center_possible and right_possible:
+    msg.turns_possible = TurnsPossible.LEFT_AND_CENTER_AND_RIGHT
+  elif left_possible and center_possible:
+    msg.turns_possible = TurnsPossible.LEFT_AND_CENTER
+  elif center_possible and right_possible:
+    msg.turns_possible = TurnsPossible.CENTER_AND_RIGHT
+  elif left_possible and right_possible:
+    msg.turns_possible = TurnsPossible.LEFT_AND_RIGHT
   elif left_possible:
     msg.turns_possible = TurnsPossible.LEFT
   elif right_possible:
     msg.turns_possible = TurnsPossible.RIGHT
+  elif center_possible:
+    msg.turns_possible = TurnsPossible.CENTER
   else:
     msg.turns_possible = TurnsPossible.NONE
   pub.publish(msg)

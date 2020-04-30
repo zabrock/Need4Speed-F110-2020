@@ -163,9 +163,17 @@ void carStatusVisualizer::publishCarStatusVisualization()
     turns_possible = "left";
   else if (this->turnsPossible == need4speed_wall_following::TurnsPossible::RIGHT)
     turns_possible = "right";
-  else if (this->turnsPossible == need4speed_wall_following::TurnsPossible::BOTH)
+  else if (this->turnsPossible == need4speed_wall_following::TurnsPossible::CENTER)
+    turns_possible = "center";
+  else if (this->turnsPossible == need4speed_wall_following::TurnsPossible::LEFT_AND_CENTER)
+    turns_possible = "left and center";
+  else if (this->turnsPossible == need4speed_wall_following::TurnsPossible::CENTER_AND_RIGHT)
+    turns_possible = "center and right";
+  else if (this->turnsPossible == need4speed_wall_following::TurnsPossible::LEFT_AND_RIGHT)
     turns_possible = "left and right";
-  this->turnsPossibleMarker.text = "Turns possible: " + turns_possible;
+  else if (this->turnsPossible == need4speed_wall_following::TurnsPossible::LEFT_AND_CENTER_AND_RIGHT)
+    turns_possible = "left, center, and right";
+  this->turnsPossibleMarker.text = "Routes possible: " + turns_possible;
   this->turns_possible_viz_pub.publish(this->turnsPossibleMarker);
 
   // executing instruction text output
