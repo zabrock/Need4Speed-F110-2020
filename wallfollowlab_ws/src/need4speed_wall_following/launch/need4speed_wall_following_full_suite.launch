@@ -26,6 +26,8 @@ n
 
   <node pkg="gap_finding" name="gap_visualizer" type="visualize_gap_finding.py" output="screen" />
   
-  <node pkg="need4speed_wall_following" name="read_instruction_node" type="read_instruction.py" output="screen"/>
+  <node pkg="need4speed_wall_following" name="read_instruction_node" type="read_instruction.py" output="screen">
+    <rosparam command="load" file="$(find need4speed_wall_following)/config/turn_identification_params.yaml"/>
+  </node>
   
 </launch>

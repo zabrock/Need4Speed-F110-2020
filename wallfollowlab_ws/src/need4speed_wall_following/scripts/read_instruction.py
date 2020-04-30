@@ -10,13 +10,14 @@ pub = rospy.Publisher('explicit_instructions', instructions, queue_size=10)
 instructions = instructions()
 def explicit():
 	#change path if needed
-	with open('/home/stark/f110_ws/src/xu_wall_following/explicit_instructions/instructions.csv') as file:
+	instruction_path = rospy.get_param('/read_instruction_node/instruction_path')
+	with open(instruction_path) as file:
 		reader = csv.reader(file, delimiter=',')
 		for ins in reader:
 			instructions.turns.append(ins[0])
 			instructions.speeds.append(float(ins[1]))
 
-	rate = rospy.Rate(5)
+	rate = rospy.Rate(1)
 	while not rospy.is_shutdown():
 		rospy.loginfo(instructions)
 		pub.publish(instructions)
