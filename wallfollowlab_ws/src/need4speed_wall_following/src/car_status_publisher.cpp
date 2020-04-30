@@ -5,6 +5,7 @@
 #include "need4speed_wall_following/ErrorAnalysis.h"
 #include "need4speed_wall_following/TurnState.h"
 #include "need4speed_wall_following/TurnsPossible.h"
+#include "need4speed_wall_following/DriveCommand.h"
 
 class carStatusVisualizer
 {
@@ -38,7 +39,7 @@ class carStatusVisualizer
     void turnStateCallback(const need4speed_wall_following::TurnState::ConstPtr& msg);
     void followModeCallback(const std_msgs::String::ConstPtr& msg);
     void turnsPossibleCallback(const need4speed_wall_following::TurnsPossible::ConstPtr& msg);
-    void executingInstructionCallback(const std_msgs::String::ConstPtr& msg);
+    void executingInstructionCallback(const need4speed_wall_following::DriveCommand::ConstPtr& msg);
 
   public:
     carStatusVisualizer();
@@ -125,9 +126,12 @@ void carStatusVisualizer::turnsPossibleCallback(const need4speed_wall_following:
   this->turnsPossible = msg->turns_possible;
 }
 
-void carStatusVisualizer::executingInstructionCallback(const std_msgs::String::ConstPtr& msg)
+void carStatusVisualizer::executingInstructionCallback(const need4speed_wall_following::DriveCommand::ConstPtr& msg)
 {
-  this->executingInstruction = msg->data;
+  if(msg->follow_method != need4speed_wall_following::DriveCommand::EMPTY_FOLLOW_METHOD && msg->velocity != need4speed_wall_following::DriveCommand::EMPTY_VELOCITY)
+    this->executingInstruction = msg->follow_method + " " + std::to_string(msg->velocity);
+  else
+    this->executingInstruction = "n/a";
 }
 
 void carStatusVisualizer::publishCarStatusVisualization()

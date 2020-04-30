@@ -33,5 +33,9 @@ n
   <node pkg="need4speed_wall_following" name="turn_tracker_node" type="turn_tracker.py" output="screen">
     <rosparam command="load" file="$(find need4speed_wall_following)/config/turn_identification_params.yaml"/>
   </node>
+
+  <node pkg="need4speed_wall_following" name="instruction_follower_node" type="instruction_follower.py" output="screen">
+    <rosparam command="load" file="$(find need4speed_wall_following)/config/turn_identification_params.yaml"/>
+  </node>
   
 </launch>
