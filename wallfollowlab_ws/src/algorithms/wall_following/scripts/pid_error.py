@@ -6,10 +6,11 @@ import numpy as np
 import yaml
 import sys
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, String
 import pdb
 
 pub = rospy.Publisher('pid_error', Float64, queue_size=10)
+follow_method_pub = rospy.Publisher('car_follow_mode', String, queue_size=10)
 
 # You can define constants in Python as uppercase global names like these.
 MIN_DISTANCE = rospy.get_param("/pid_error_node/min_distance")
@@ -162,10 +163,13 @@ def scan_callback(data):
 
   if FOLLOW_METHOD == "left":
     error = followLeft(data,DESIRED_DISTANCE)
+    follow_method_pub.publish(String("left"))
   elif FOLLOW_METHOD == "center":
     error = followCenter(data)
+    follow_method_pub.publish(String("center"))
   elif FOLLOW_METHOD == "right":
     error = followRight(data,DESIRED_DISTANCE)
+    follow_method_pub.publish(String("right"))
   else:
     raise ValueError("Incorrect follow method specified") 
 

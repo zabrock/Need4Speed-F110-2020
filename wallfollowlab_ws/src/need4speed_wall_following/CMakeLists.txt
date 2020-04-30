@@ -53,6 +53,7 @@ add_message_files(
   FILES
   ErrorAnalysis.msg
   TurnState.msg
+  TurnsPossible.msg
 )
 
 ## Generate services in the 'srv' folder
