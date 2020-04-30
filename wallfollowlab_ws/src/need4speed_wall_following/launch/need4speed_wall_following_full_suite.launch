@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find racecar_simulator)/launch/simulator.launch">
+        <arg name="map" value="$(find racecar_simulator)/maps/levine.yaml"/>
+  </include>
+
+  <!-- output="screen" allows us to see print statements-->
+  <!-- Load the PID error and control nodes with the parameters from a YAML file -->
+  <node pkg="wall_following" name="pid_error_node" type="pid_error.py" output="screen">
+    <rosparam command="load" file="$(find need4speed_wall_following)/config/params.yaml"/>
+  </node>
+  <node pkg="wall_following" name="control_node" type="control.py" output="screen">
+    <rosparam command="load" file="$(find need4speed_wall_following)/config/params.yaml"/>
+  </node>
+  <node pkg="wall_following" name="sim_connector_node" type="sim_connector.py" output="screen"/>
+
+  <node pkg="need4speed_wall_following" name="error_analysis" type="need4speed_analysis" output="screen" />
+
+  <node pkg="need4speed_wall_following" name="turn_identifier_node" type="turn_identifier.py" output="screen">
+    <rosparam command="load" file="$(find need4speed_wall_following)/config/turn_identification_params.yaml"/>
+  </node>
+n
+  <node pkg="need4speed_wall_following" name="car_status_visualizer" type="car_status_publisher" output="screen" />
+
+  <node pkg="need4speed_gap_finding" name="gap_finding_node" type="find_gap" output="screen" />
+
+  <node pkg="gap_finding" name="gap_visualizer" type="visualize_gap_finding.py" output="screen" />
+
+</launch>

@@ -1,4 +1,5 @@
 #include "ros/ros.h"
+#include "std_msgs/Header.h"
 #include "geometry_msgs/Vector3.h"
 #include "sensor_msgs/LaserScan.h"
 #include "need4speed_gap_finding/gaps.h"
@@ -70,6 +71,9 @@ void gapFinder::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
   std::vector<double> preprocessed_ranges = this->preprocess_lidar_scan(msg);
   // Use the preprocessed readings to identify gaps
   need4speed_gap_finding::gaps gap_msg = this->get_turn_gaps(preprocessed_ranges);
+  std_msgs::Header h;
+  h.stamp = ros::Time::now();
+  gap_msg.header = h;
   this->gaps_pub.publish(gap_msg);
 
   // Find the largest gap and publish it

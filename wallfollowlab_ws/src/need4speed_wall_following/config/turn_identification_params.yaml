@@ -1,0 +1,19 @@
+# LIDAR-specific parameters - considered constant
+# Minimum/maximum range acceptable for distance calculation, meters
+min_distance: 0.1
+max_distance: 30.0
+# Minimum/maximum angle and angle increment of LIDAR sensor
+# Min/max in degrees, angle_increment in radians
+min_angle: -45.0
+max_angle: 225.0
+angle_increment: rad(0.00436515314505)
+
+# LIDAR filter parameters
+filter_width: 31
+filter_lidar: false
+
+# turn identification parameters
+max_gap_distance: 4
+min_gap_width: 0.5
+theta: 20
+cross_product_threshold: 0.0

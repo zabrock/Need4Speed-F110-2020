@@ -30,10 +30,16 @@ def callback(data):
     marker.color.b = 0.0
 
     # Publish the MarkerArray
-    print("Sending marker")
     publisher.publish(marker)
 
 def multi_gap_callback(msg):
+    marker_array = MarkerArray()
+    marker = Marker()
+    marker.action = Marker.DELETEALL
+    marker.header.frame_id = "/laser"
+    marker_array.markers.append(marker)
+    all_gap_publisher.publish(marker_array)
+
     marker_array = MarkerArray()
     for index, gap_center in enumerate(msg.gap_centers):
         marker = Marker()
@@ -52,11 +58,9 @@ def multi_gap_callback(msg):
         marker.color.r = 1.0
         marker.color.g = 0.0
         marker.color.b = 0.0
-        print(marker)
         marker_array.markers.append(marker)
 
     # Publish the MarkerArray
-    print("Sending marker array")
     all_gap_publisher.publish(marker_array)
 
         
