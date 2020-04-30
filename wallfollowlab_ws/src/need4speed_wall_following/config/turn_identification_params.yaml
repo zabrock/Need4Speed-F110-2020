@@ -21,7 +21,9 @@ cross_product_threshold: 0.0
 
 # Explicit instruction parameters
 instruction_path: "/home/zeke/need4speed_ws/wallfollowlab_ws/src/need4speed_wall_following/explicit_instructions/instructions.csv"
-use_explicit_instructions: false
+use_explicit_instructions: true
+default_follow_method: center
+default_velocity: 2.0
 
 # Turn state tracking parameters
 turn_init_threshold: deg(20)

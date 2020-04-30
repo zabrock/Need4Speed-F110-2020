@@ -140,10 +140,8 @@ def gapCallback(gap_msg):
     # Check gap against left wall vector first
     elif gap_center.x**2 + gap_center.y**2 < MAX_GAP_DISTANCE**2:
       if left_cross_prod > MIN_CROSS_THRESH:
-        rospy.loginfo("Left turn detected")
         left_possible = True
       elif right_cross_prod < -MIN_CROSS_THRESH:
-        rospy.loginfo("Right turn detected")
         right_possible = True
   
 
