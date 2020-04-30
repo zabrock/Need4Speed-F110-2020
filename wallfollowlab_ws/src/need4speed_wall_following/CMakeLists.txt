@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  visualization_msgs
   message_generation
 )
 
@@ -51,6 +52,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   ErrorAnalysis.msg
+  TurnState.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -154,6 +156,10 @@ include_directories(
 add_executable(need4speed_analysis src/need4speed_analysis.cpp)
 target_link_libraries(need4speed_analysis ${catkin_LIBRARIES})
 add_dependencies(need4speed_analysis need4speed_wall_following_generate_messages_cpp)
+
+add_executable(car_status_publisher src/car_status_publisher.cpp)
+target_link_libraries(car_status_publisher ${catkin_LIBRARIES})
+add_dependencies(car_status_publisher need4speed_wall_following_generate_messages_cpp)
 
 #############
 ## Install ##

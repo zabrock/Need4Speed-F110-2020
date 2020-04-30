@@ -1,0 +1,2 @@
+bool turn_initiated
+bool turn_completed
