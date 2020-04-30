@@ -1,6 +1,10 @@
 int8 NONE=0
 int8 LEFT=1
 int8 RIGHT=2
-int8 BOTH=3
+int8 CENTER=3
+int8 LEFT_AND_RIGHT=4
+int8 LEFT_AND_CENTER=5
+int8 CENTER_AND_RIGHT=6
+int8 LEFT_AND_CENTER_AND_RIGHT=7
 
 int8 turns_possible

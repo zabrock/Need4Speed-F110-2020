@@ -3,6 +3,7 @@
 import rospy
 from race.msg import drive_param
 from std_msgs.msg import Float64
+from need4speed_wall_following.msg import DriveCommand
 import numpy as np
 import math
 
@@ -12,13 +13,20 @@ previous_error = 0.0
 previous_time = 0.0
 previous_de_dt = 0.0
 
+# Persistent variable for desired velocity when published from other nodes
+override_velocity = DriveCommand.EMPTY_VELOCITY
+
 pub = rospy.Publisher('drive_parameters', drive_param, queue_size=1)
 
 # Speed control algorithm based on steering angle.
 # steer_angle: steer tire angle computed by PID controller, radians
 # Outputs velocity in meters per second
 def calculate_velocity(steer_angle):
-  # Set speed thresholds and speed values
+  # Return desired velocity received from another node if received
+  if override_velocity != DriveCommand.EMPTY_VELOCITY:
+    return override_velocity
+
+  # Otherwise, get speed thresholds and speed values
   MAX_SPEED = rospy.get_param("/control_node/max_speed")
   MED_SPEED = rospy.get_param("/control_node/med_speed")
   MIN_SPEED = rospy.get_param("/control_node/min_speed")
@@ -77,9 +85,14 @@ def control_callback(msg):
   msg.angle = angle
   pub.publish(msg)
 
+def velocity_callback(msg):
+  global override_velocity
+  override_velocity = msg.velocity
+
 # Boilerplate code to start this ROS node.
 if __name__ == '__main__':
   rospy.init_node('pid_controller_node', anonymous=True)
   rospy.Subscriber("pid_error", Float64, control_callback)
+  rospy.Subscriber("drive_command", DriveCommand, velocity_callback)
   rospy.spin()
 

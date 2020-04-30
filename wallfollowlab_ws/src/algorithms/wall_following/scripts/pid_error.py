@@ -7,10 +7,13 @@ import yaml
 import sys
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float64, String
+from need4speed_wall_following.msg import DriveCommand
 import pdb
 
 pub = rospy.Publisher('pid_error', Float64, queue_size=10)
 follow_method_pub = rospy.Publisher('car_follow_mode', String, queue_size=10)
+
+follow_override = DriveCommand.EMPTY_FOLLOW_METHOD
 
 # You can define constants in Python as uppercase global names like these.
 MIN_DISTANCE = rospy.get_param("/pid_error_node/min_distance")
@@ -156,7 +159,10 @@ def filter_lidar(data):
 # data: the LIDAR data, published as a list of distances to the wall.
 def scan_callback(data):
   DESIRED_DISTANCE = rospy.get_param("/pid_error_node/desired_distance")
-  FOLLOW_METHOD = rospy.get_param("/pid_error_node/follow_method")
+  if follow_override != DriveCommand.EMPTY_FOLLOW_METHOD:
+    FOLLOW_METHOD = follow_override
+  else:
+    FOLLOW_METHOD = rospy.get_param("/pid_error_node/follow_method")
 
   if rospy.get_param("/pid_error_node/filter_lidar"):
     data = filter_lidar(data)
@@ -177,9 +183,14 @@ def scan_callback(data):
   msg.data = error
   pub.publish(msg)
 
+def follow_callback(msg):
+  global follow_override
+  follow_override = msg.follow_method
+
 # Boilerplate code to start this ROS node.
 # DO NOT MODIFY!
 if __name__ == '__main__':
 	rospy.init_node('pid_error_node', anonymous = True)
 	rospy.Subscriber("scan", LaserScan, scan_callback)
+	rospy.Subscriber("drive_command", DriveCommand, follow_callback)
 	rospy.spin()
