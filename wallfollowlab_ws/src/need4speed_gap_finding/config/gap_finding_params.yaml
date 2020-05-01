@@ -1,0 +1,16 @@
+# Maximum range acceptable in scan values; any range greater than this is set to
+# this value
+max_acceptable_scan_distance: 6
+# Minimum range acceptable in scan values; any range less than this is set to this 
+# value
+min_acceptable_scan_distance: 0
+# Angle in front of the vehicle that will
+# be looked at for gaps
+truncated_lidar_angle: rad(pi)
+# Percentage of a given scan range that is allowed to be different between it and
+# the next range value before determining that the next range value is part of
+# another wall
+max_adjacent_scan_percentage_difference: 0.1
+# Minimum gap width acceptable before a given gap in the scan is deemed to be
+# a traversable gap
+min_acceptable_gap_width: 0.5

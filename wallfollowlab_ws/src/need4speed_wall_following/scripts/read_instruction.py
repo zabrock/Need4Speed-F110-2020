@@ -11,10 +11,8 @@ global index
 global instruction_set
 index = 0
 
-#def turnStatus():		# test_1
 def instructionCompleteCallback(msg):		
-	global index
-#	if True:	# test_2	
+	global index	
 	if msg.data:
 		# Increment index
 		index = index + 1
@@ -31,7 +29,6 @@ def publishInstruction():
 		drive_command.follow_method = instruction_set.turns[index]
 		drive_command.velocity = instruction_set.speeds[index]
 		
-		rospy.loginfo(drive_command)
 	else:
 		# Publish out an empty command message since there's no
 		# more instructions to follow
@@ -58,13 +55,11 @@ def readInstructions():
 	drive_command.follow_method = instruction_set.turns[0]
 	drive_command.velocity = instruction_set.speeds[0]
 	pub_next_command.publish(drive_command)
-	rospy.loginfo(drive_command)
 
 # Boilerplate code to start this ROS node.
 if __name__ == '__main__':
         rospy.init_node('read_instruction_node', anonymous=True)
 	readInstructions()
-#	turnStatus()	# test_3
 	rospy.Subscriber("instruction_complete", Bool, instructionCompleteCallback)
 	rospy.Subscriber("request_instruction", Bool, requestInstructionCallback)
 	rospy.spin()

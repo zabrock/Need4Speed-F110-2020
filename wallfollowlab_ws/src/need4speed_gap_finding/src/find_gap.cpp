@@ -7,6 +7,7 @@
 #include <vector>
 #include <utility> // Used for std::pair
 #include <algorithm> // Used for std::max and std::min
+#include <string>
 
 class gapFinder
 {
@@ -43,11 +44,11 @@ gapFinder::gapFinder() :
     gaps_pub(node_handle.advertise<need4speed_gap_finding::gaps>("lidar_gaps", 100)),
     largest_gap_pub(node_handle.advertise<geometry_msgs::Vector3>("gap_center",100))
 {
-  this->max_acceptable_distance = 6;
-  this->min_acceptable_distance = 0;
-  this->truncated_lidar_angle = M_PI;
-  this->max_adjacent_pct_diff = 0.1;
-  this->min_acceptable_gap_width = 0.5;
+  ros::param::get("/gap_finding_node/max_acceptable_scan_distance",this->max_acceptable_distance);
+  ros::param::get("/gap_finding_node/min_acceptable_scan_distance",this->min_acceptable_distance);
+  ros::param::get("/gap_finding_node/truncated_lidar_angle",this->truncated_lidar_angle);
+  ros::param::get("/gap_finding_node/max_adjacent_scan_percentage_difference",this->max_adjacent_pct_diff);
+  ros::param::get("/gap_finding_node/min_acceptable_gap_width",this->min_acceptable_gap_width);
 }
 
 void gapFinder::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
@@ -107,60 +108,7 @@ std::vector<double> gapFinder::preprocess_lidar_scan(const sensor_msgs::LaserSca
     else
       preprocessed_ranges.push_back(msg->ranges[i]);
   }
-  //preprocessed_ranges = this->filter_ranges(preprocessed_ranges);
   return preprocessed_ranges;
-}
-
-std::vector<double> gapFinder::filter_ranges(const std::vector<double>& lidar_ranges)
-{
-  std::vector<double> filtered_ranges;
-  int filter_width = 21; // TODO: Need to change this to parameter
-  int half_width = (filter_width-1)/2;
-  for(int i{0}; i < lidar_ranges.size(); i++)
-  {
-    int min_idx{std::max(0,i-half_width)};
-    int max_idx{std::min(i+half_width,static_cast<int>(lidar_ranges.size())-1)};
-    double sum{0.0};
-    for(int j{min_idx}; j <= max_idx; j++)
-      sum += lidar_ranges[j];
-    // Add one to index difference since the center index is also part of average
-    filtered_ranges.push_back(sum/(max_idx-min_idx+1));
-  }
-  return filtered_ranges;
-}
-
-need4speed_gap_finding::gaps gapFinder::get_lidar_gaps(const std::vector<double>& lidar_ranges)
-{
-  need4speed_gap_finding::gaps gaps;
-
-  // Tracking variables for where gaps begin and end
-  size_t current_start{0};
-  size_t current_size{0};
-  size_t current_idx{0};
-  while(current_idx < lidar_ranges.size())
-  {
-    current_start = current_idx;
-    current_size = 0;
-
-    // Consider any non-zero or negative points as part of a gap
-    while(current_idx < lidar_ranges.size() && lidar_ranges[current_idx] > 0.1)
-    {
-      // This gap is done if difference to next range value is greater than expected
-      if(current_idx >= lidar_ranges.size()-1 || std::abs(lidar_ranges[current_idx] - lidar_ranges[current_idx+1]) > this->max_adjacent_pct_diff*lidar_ranges[current_idx])
-        break;
-      current_idx++;
-      current_size++;
-    }
-    if(current_size > 1)
-    {
-      // A gap has been found, so find where and how wide it is
-      std::pair<geometry_msgs::Vector3, std_msgs::Float64> gap_info = this->calculate_gap(lidar_ranges, current_start, current_start+current_size);
-      gaps.gap_centers.push_back(gap_info.first);
-      gaps.gap_widths.push_back(gap_info.second);
-    }
-    current_idx++;
-  }
-  return gaps;
 }
 
 need4speed_gap_finding::gaps gapFinder::get_turn_gaps(const std::vector<double>& lidar_ranges)

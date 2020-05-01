@@ -67,6 +67,8 @@ carStatusVisualizer::carStatusVisualizer() :
   this->turnsPossible = 0;
   this->executingInstruction = "n/a";
 
+  // Initialize all the markers with their positions so we only need to
+  // change the text during callbacks
   this->wallFollowModeMarker = visualization_msgs::Marker();
   this->wallFollowModeMarker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
   this->wallFollowModeMarker.scale.z = 0.4;

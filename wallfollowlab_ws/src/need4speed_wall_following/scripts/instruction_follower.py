@@ -35,8 +35,11 @@ class instructionFollower:
 
   def driveCommandCallback(self, msg):
     self.saved_next_instruction = msg
-    print("received new instruction: ")
-    print(self.saved_next_instruction)
+    if msg.follow_method == DriveCommand.EMPTY_FOLLOW_METHOD and msg.velocity == DriveCommand.EMPTY_VELOCITY:
+      print("finished instructions, restoring default wall following behavior")
+    else:
+      print("received new instruction: ")
+      print(self.saved_next_instruction)
     self.received_first_instruction = True
 
   def turnStateCallback(self, msg):
@@ -53,17 +56,20 @@ class instructionFollower:
     self.saved_turns_possible = msg
 
   def publishCommand(self):
+    # Resort to original wall following behavior if no instructions received
     msg = DriveCommand()
     msg.velocity = DriveCommand.EMPTY_VELOCITY
     msg.follow_method = DriveCommand.EMPTY_FOLLOW_METHOD
 
-    if not self.received_first_instruction:
-      # Request first instruction
-      print("Requesting first instruction")
-      self.request_instruction_pub.publish(Bool(True))
-    elif rospy.get_param("/instruction_follower_node/use_explicit_instructions"):
-      # Get next instruction
-      msg = self.explicitInstructionAlgorithm()
+    
+    if rospy.get_param("/instruction_follower_node/use_explicit_instructions"):
+      if not self.received_first_instruction:
+        # Request first instruction
+        print("Requesting first instruction")
+        self.request_instruction_pub.publish(Bool(True))
+      else:
+        # Get next instruction
+        msg = self.explicitInstructionAlgorithm()
 
     self.pub.publish(msg)
     self.old_instruction = msg
@@ -80,6 +86,10 @@ class instructionFollower:
     follow_method = self.saved_next_instruction.follow_method
     velocity = self.saved_next_instruction.velocity
     turns_possible = self.saved_turns_possible.turns_possible
+    
+    if follow_method == DriveCommand.EMPTY_FOLLOW_METHOD and velocity == DriveCommand.EMPTY_VELOCITY:
+      # Perform original wall following behavior
+      return self.saved_next_instruction
 
     # If car was previously executing a turn, continue to publish it
     if self.executing_turn:
@@ -87,7 +97,7 @@ class instructionFollower:
       # if so and we see it, modify to follow the instruction
       if not self.executing_instruction:
         if turns_possible == TurnsPossible.LEFT_AND_RIGHT:
-          print("detected actual instruction, changing behavior")
+          print("instruction now possible, changing behavior")
           cmd = self.old_instruction
           cmd.follow_method = follow_method
           cmd.velocity = velocity
@@ -116,23 +126,21 @@ class instructionFollower:
           cmd.follow_method = DriveCommand.FOLLOW_CENTER
         return cmd
     
-    # Set up default behavior
+    # Set up corridor following behavior
     cmd = DriveCommand()
-    cmd.follow_method = rospy.get_param("/instruction_follower_node/default_follow_method")
-    cmd.velocity = rospy.get_param("/instruction_follower_node/default_velocity")
+    cmd.follow_method = rospy.get_param("/instruction_follower_node/corridor_follow_method")
+    cmd.velocity = rospy.get_param("/instruction_follower_node/corridor_velocity")
     
-    # If only center gap is detected, keep following it with default behavior
+    # If only center gap is detected, keep following it with corridor behavior
     if self.saved_turns_possible.turns_possible == TurnsPossible.CENTER or self.saved_turns_possible.turns_possible == TurnsPossible.NONE:
       return cmd
 
     # Otherwise, try to determine which way to go
-    
-    
     if follow_method == DriveCommand.FOLLOW_LEFT:
       # Check if a left turn appears possible
       valid = (turns_possible == TurnsPossible.LEFT_AND_CENTER_AND_RIGHT) or (turns_possible == TurnsPossible.LEFT_AND_CENTER) or (turns_possible == TurnsPossible.LEFT_AND_RIGHT) or (turns_possible == TurnsPossible.LEFT)
       if valid:
-        print("attempting left turn")
+        print("following left turn instruction")
         cmd.follow_method = follow_method
         cmd.velocity = velocity
         self.executing_turn = True
@@ -141,16 +149,18 @@ class instructionFollower:
       elif turns_possible == TurnsPossible.CENTER_AND_RIGHT:
         # Stay left to keep center
         cmd.follow_method = DriveCommand.FOLLOW_LEFT
+        print("left not possible, defaulting to drive straight")
       else:
         # Must be right turn available only
         cmd.follow_method = DriveCommand.FOLLOW_RIGHT
         self.executing_turn = True
+        print("left not possible, performing right turn")
 
     elif follow_method == DriveCommand.FOLLOW_RIGHT:
       # Check if a right turn appears possible
       valid = (turns_possible == TurnsPossible.LEFT_AND_CENTER_AND_RIGHT) or (turns_possible == TurnsPossible.CENTER_AND_RIGHT) or (turns_possible == TurnsPossible.LEFT_AND_RIGHT) or (turns_possible == TurnsPossible.RIGHT)
       if valid:
-        print("attempting right turn")
+        print("following right turn instruction")
         cmd.follow_method = follow_method
         cmd.velocity = velocity
         self.executing_instruction = True
@@ -158,24 +168,26 @@ class instructionFollower:
       elif turns_possible == TurnsPossible.LEFT_AND_CENTER:
         # Stay right to keep center
         cmd.follow_method = DriveCommand.FOLLOW_RIGHT
+        print("right not possible, defaulting to drive straight")
       else:
         # Must be left turn available only
         cmd.follow_method = DriveCommand.FOLLOW_LEFT
         self.executing_turn = True
+        print("right not possible, performing left turn")
 
     elif follow_method == DriveCommand.FOLLOW_CENTER:
       if turns_possible == TurnsPossible.CENTER_AND_RIGHT:
         self.following_center = True
         self.center_start_time = rospy.Time.now()
         # Stay left to keep on center
-        print("staying left to keep center")
+        print("staying left to follow center instruction")
         cmd.follow_method = DriveCommand.FOLLOW_LEFT
         cmd.velocity = velocity
       elif turns_possible == TurnsPossible.LEFT_AND_CENTER:
         self.following_center = True
         self.center_start_time = rospy.Time.now()
         # Stay right to keep on center
-        print("staying right to keep center")
+        print("staying right to follow center instruction")
         cmd.follow_method = DriveCommand.FOLLOW_RIGHT
         cmd.velocity = velocity
       elif turns_possible == TurnsPossible.LEFT_AND_CENTER_AND_RIGHT:
@@ -183,19 +195,20 @@ class instructionFollower:
         cmd.velocity = velocity
         self.following_center = True
         self.center_start_time = rospy.Time.now()
+        print("following center instruction")
       elif turns_possible == TurnsPossible.LEFT:
         cmd.follow_method = DriveCommand.FOLLOW_LEFT
-        print("turning left")
+        print("straight not possible, turning left")
         self.executing_turn = True
       elif turns_possible == TurnsPossible.RIGHT:
         cmd.follow_method = DriveCommand.FOLLOW_RIGHT
         self.executing_turn = True
-        print("turning right")
+        print("straight not possible, turning right")
       elif turns_possible == TurnsPossible.LEFT_AND_RIGHT:
         # Default to left turns
         cmd.follow_method = DriveCommand.FOLLOW_LEFT
         self.executing_turn = True
-        print("defaulting left")
+        print("straight not possible, defaulting left")
 
     return cmd 
       

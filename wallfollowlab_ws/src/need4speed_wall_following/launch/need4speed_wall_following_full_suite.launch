@@ -22,7 +22,9 @@
 n
   <node pkg="need4speed_wall_following" name="car_status_visualizer" type="car_status_publisher" output="screen" />
 
-  <node pkg="need4speed_gap_finding" name="gap_finding_node" type="find_gap" output="screen" />
+  <node pkg="need4speed_gap_finding" name="gap_finding_node" type="find_gap" output="screen">
+    <rosparam command="load" file="$(find need4speed_gap_finding)/config/gap_finding_params.yaml"/>
+  </node>
 
   <node pkg="gap_finding" name="gap_visualizer" type="visualize_gap_finding.py" output="screen" />
   
