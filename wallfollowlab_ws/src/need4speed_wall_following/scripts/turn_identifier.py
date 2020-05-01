@@ -61,16 +61,6 @@ def getAlpha(a,b,theta):
   # Return alpha as defined by Equation (1) in the lab writeup
   return np.degrees(np.arctan(num/den))
 
-# a: distance from LIDAR to wall at angle theta
-# b: distance form LIDAR to wall at "zero" angle (depending on side)
-# theta: angle between distances a and b, in degrees
-# lookahead_distance: projected lookahead distance of car
-# Output: D_t+1, or the future-projected distance from the wall
-def getFutureDistance(a,b,theta,lookahead_dist):
-  # Get the angle from the car's x-axis to the wall
-  alpha = getAlpha(a,b,theta)
-  # Return the estimated future distance
-  return b*np.cos(np.radians(alpha)) + lookahead_dist*np.sin(np.radians(alpha))
 
 def filter_lidar(data):
   # Filter the ranges in data with a simple moving average filter
@@ -123,6 +113,8 @@ def gapCallback(gap_msg):
   left_possible = False
   right_possible = False
   center_possible = False
+
+  # Check each located gap to see if it matches our "possible turn" criteria
   for gap_width, gap_center in zip(gap_msg.gap_widths, gap_msg.gap_centers):
     if gap_width < MIN_GAP_WIDTH:
       continue
@@ -134,11 +126,11 @@ def gapCallback(gap_msg):
     # Calculate distance to gap; if greater than max_distance,
     # check if between two walls to determine that center following is possible 
     if gap_center.x**2 + gap_center.y**2 > CENTER_DIST_THRESH**2:
-      #if left_cross_prod < MIN_CROSS_THRESH and right_cross_prod > -MIN_CROSS_THRESH:
-      #  center_possible = True
+      if left_cross_prod < MIN_CROSS_THRESH and right_cross_prod > -MIN_CROSS_THRESH:
+        center_possible = True
       center_possible = True
     # Check gap against left wall vector first
-    elif gap_center.x**2 + gap_center.y**2 < MAX_GAP_DISTANCE**2:
+    elif gap_center.x < MAX_GAP_DISTANCE:
       if left_cross_prod > MIN_CROSS_THRESH:
         left_possible = True
       elif right_cross_prod < -MIN_CROSS_THRESH:
@@ -164,15 +156,13 @@ def gapCallback(gap_msg):
     msg.turns_possible = TurnsPossible.NONE
   pub.publish(msg)
 
-def getLeftWallVector(scan_msg):
-  b = getRange(scan_msg,180)
-  a = getRange(scan_msg,180-THETA)
-  alpha = getAlpha(a,b,THETA)
-  return ( np.cos(np.radians(alpha)), np.sin(np.radians(alpha)) )
-
+# Gets vector from wall_pt to gap_loc.
+# wall_pt: point along wall from lidar scan.
+# gap_loc: Vector3 object containing gap location in lidar frame.
 def getGapVector(wall_pt, gap_loc):
   return (gap_loc.x - wall_pt[0], gap_loc.y - wall_pt[1])
 
+# Calculates cross-product of two 2D vectors
 def getCrossProduct(vec1, vec2):
   return vec1[0]*vec2[1] - vec1[1]*vec2[0]
 

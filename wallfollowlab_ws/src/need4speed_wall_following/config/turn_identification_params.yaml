@@ -13,18 +13,20 @@ filter_width: 31
 filter_lidar: false
 
 # turn identification parameters
-max_gap_distance: 4
+max_gap_distance: 2.5
 center_distance_threshold: 5
-min_gap_width: 0.5
-theta: 20
-cross_product_threshold: 0.0
+min_gap_width: 0.7
+theta: 15
+cross_product_threshold: 0.75
 
 # Explicit instruction parameters
 instruction_path: "/home/zeke/need4speed_ws/wallfollowlab_ws/src/need4speed_wall_following/explicit_instructions/instructions.csv"
 use_explicit_instructions: true
 default_follow_method: center
 default_velocity: 2.0
+center_follow_min_time: 2.0
 
 # Turn state tracking parameters
 turn_init_threshold: deg(20)
-turn_complete_threshold: deg(10)
+turn_complete_threshold: deg(12)
+wall_angle_threshold: deg(25)

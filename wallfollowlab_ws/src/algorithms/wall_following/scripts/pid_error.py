@@ -12,6 +12,7 @@ import pdb
 
 pub = rospy.Publisher('pid_error', Float64, queue_size=10)
 follow_method_pub = rospy.Publisher('car_follow_mode', String, queue_size=10)
+wall_angle_pub = rospy.Publisher('angle_to_wall', Float64, queue_size=10)
 
 follow_override = DriveCommand.EMPTY_FOLLOW_METHOD
 
@@ -71,6 +72,7 @@ def getAlpha(a,b,theta):
 def getFutureDistance(a,b,theta,lookahead_dist):
   # Get the angle from the car's x-axis to the wall
   alpha = getAlpha(a,b,theta)
+  wall_angle_pub.publish(Float64(alpha))
   # Return the estimated future distance
   return b*np.cos(np.radians(alpha)) + lookahead_dist*np.sin(np.radians(alpha))
 
