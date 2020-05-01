@@ -17,11 +17,13 @@ class carStatusVisualizer
     double runningMaxError;
     int turnsPossible;
     std::string executingInstruction;
+    std::string nextInstruction;
     visualization_msgs::Marker wallFollowModeMarker;
     visualization_msgs::Marker turnStateMarker;
     visualization_msgs::Marker errorStateMarker;
     visualization_msgs::Marker turnsPossibleMarker;
     visualization_msgs::Marker executingInstructionMarker;
+    visualization_msgs::Marker nextInstructionMarker;
 
     ros::NodeHandle nh;
     ros::Subscriber error_sub;
@@ -29,17 +31,20 @@ class carStatusVisualizer
     ros::Subscriber follow_mode_sub;
     ros::Subscriber turn_possible_sub;
     ros::Subscriber executing_instruction_sub;
+    ros::Subscriber next_instruction_sub;
     ros::Publisher error_viz_pub;
     ros::Publisher turn_state_viz_pub;
     ros::Publisher follow_mode_viz_pub;
     ros::Publisher turns_possible_viz_pub;
     ros::Publisher executing_instruction_viz_pub;
+    ros::Publisher next_instruction_viz_pub;
 
     void errorCallback(const need4speed_wall_following::ErrorAnalysis::ConstPtr& msg);
     void turnStateCallback(const need4speed_wall_following::TurnState::ConstPtr& msg);
     void followModeCallback(const std_msgs::String::ConstPtr& msg);
     void turnsPossibleCallback(const need4speed_wall_following::TurnsPossible::ConstPtr& msg);
     void executingInstructionCallback(const need4speed_wall_following::DriveCommand::ConstPtr& msg);
+    void nextInstructionCallback(const need4speed_wall_following::DriveCommand::ConstPtr& msg);
 
   public:
     carStatusVisualizer();
@@ -52,20 +57,23 @@ carStatusVisualizer::carStatusVisualizer() :
   turn_state_sub(nh.subscribe("car_turn_state", 100, &carStatusVisualizer::turnStateCallback, this)),
   follow_mode_sub(nh.subscribe("car_follow_mode", 100, &carStatusVisualizer::followModeCallback, this)),
   turn_possible_sub(nh.subscribe("turns_possible", 100, &carStatusVisualizer::turnsPossibleCallback, this)),
-  executing_instruction_sub(nh.subscribe("executing_instruction", 100, &carStatusVisualizer::executingInstructionCallback, this))
+  executing_instruction_sub(nh.subscribe("executing_instruction", 100, &carStatusVisualizer::executingInstructionCallback, this)),
+  next_instruction_sub(nh.subscribe("next_instruction", 100, &carStatusVisualizer::nextInstructionCallback, this))
 {
   this->error_viz_pub = this->nh.advertise<visualization_msgs::Marker>("error_visualization", 1);
   this->turn_state_viz_pub = this->nh.advertise<visualization_msgs::Marker>("turn_state_visualization", 1);
   this->follow_mode_viz_pub = this->nh.advertise<visualization_msgs::Marker>("follow_mode_visualization", 1);
   this->turns_possible_viz_pub = this->nh.advertise<visualization_msgs::Marker>("turns_possible_visualization", 1);
   this->executing_instruction_viz_pub = this->nh.advertise<visualization_msgs::Marker>("executing_instruction_visualization", 1);
+  this->next_instruction_viz_pub = this->nh.advertise<visualization_msgs::Marker>("next_instruction_visualization", 1);
   this->wallFollowMode = "";
   this->turnInitiated = false;
   this->turnCompleted = false;
   this->runningAverageError = 0.0;
   this->runningMaxError = 0.0;
   this->turnsPossible = 0;
-  this->executingInstruction = "n/a";
+  this->executingInstruction = "no";
+  this->nextInstruction = "none";
 
   // Initialize all the markers with their positions so we only need to
   // change the text during callbacks
@@ -103,7 +111,14 @@ carStatusVisualizer::carStatusVisualizer() :
   this->executingInstructionMarker.color.a = 1;
   this->executingInstructionMarker.header.frame_id = "/laser";
   this->executingInstructionMarker.pose.position.y = 3.0;
-  this->executingInstructionMarker.pose.position.x = 1.2;
+  this->executingInstructionMarker.pose.position.x = -1.2;
+  this->nextInstructionMarker = visualization_msgs::Marker();
+  this->nextInstructionMarker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+  this->nextInstructionMarker.scale.z = 0.4;
+  this->nextInstructionMarker.color.a = 1;
+  this->nextInstructionMarker.header.frame_id = "/laser";
+  this->nextInstructionMarker.pose.position.y = 3.0;
+  this->nextInstructionMarker.pose.position.x = 1.2;
 }
 
 void carStatusVisualizer::errorCallback(const need4speed_wall_following::ErrorAnalysis::ConstPtr& msg)
@@ -133,7 +148,14 @@ void carStatusVisualizer::executingInstructionCallback(const need4speed_wall_fol
   if(msg->follow_method != need4speed_wall_following::DriveCommand::EMPTY_FOLLOW_METHOD && msg->velocity != need4speed_wall_following::DriveCommand::EMPTY_VELOCITY)
     this->executingInstruction = msg->follow_method + " " + std::to_string(msg->velocity);
   else
-    this->executingInstruction = "n/a";
+    this->executingInstruction = "no";
+}
+void carStatusVisualizer::nextInstructionCallback(const need4speed_wall_following::DriveCommand::ConstPtr& msg)
+{
+  if(msg->follow_method != need4speed_wall_following::DriveCommand::EMPTY_FOLLOW_METHOD && msg->velocity != need4speed_wall_following::DriveCommand::EMPTY_VELOCITY)
+    this->nextInstruction = msg->follow_method + " " + std::to_string(msg->velocity);
+  else
+    this->nextInstruction = "none";
 }
 
 void carStatusVisualizer::publishCarStatusVisualization()
@@ -185,6 +207,9 @@ void carStatusVisualizer::publishCarStatusVisualization()
   // executing instruction text output
   this->executingInstructionMarker.text = "Executing instruction: " + this->executingInstruction;
   this->executing_instruction_viz_pub.publish(this->executingInstructionMarker);
+  // next instruction text output
+  this->nextInstructionMarker.text = "Next instruction: " + this->nextInstruction;
+  this->next_instruction_viz_pub.publish(this->nextInstructionMarker);
 }
 
 int main( int argc, char** argv )

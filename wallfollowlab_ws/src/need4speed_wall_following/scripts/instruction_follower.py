@@ -96,7 +96,14 @@ class instructionFollower:
       # It's possible the car missed one of the turns in leadup to corridor;
       # if so and we see it, modify to follow the instruction
       if not self.executing_instruction:
-        if turns_possible == TurnsPossible.LEFT_AND_RIGHT:
+        if turns_possible == TurnsPossible.LEFT_AND_RIGHT or turns_possible == TurnsPossible.LEFT_AND_CENTER_AND_RIGHT:
+          print("instruction now possible, changing behavior")
+          cmd = self.old_instruction
+          cmd.follow_method = follow_method
+          cmd.velocity = velocity
+          self.executing_instruction = True
+          return cmd
+        elif (turns_possible == TurnsPossible.LEFT and follow_method == DriveCommand.FOLLOW_LEFT) or (turns_possible == TurnsPossible.RIGHT and follow_method == DriveCommand.FOLLOW_RIGHT):
           print("instruction now possible, changing behavior")
           cmd = self.old_instruction
           cmd.follow_method = follow_method
@@ -146,12 +153,12 @@ class instructionFollower:
         self.executing_turn = True
         self.executing_instruction = True
         self.instruction_start_time = rospy.Time.now()
-      elif turns_possible == TurnsPossible.CENTER_AND_RIGHT:
-        # Stay left to keep center
-        cmd.follow_method = DriveCommand.FOLLOW_LEFT
-        print("left not possible, defaulting to drive straight")
+#      elif turns_possible == TurnsPossible.CENTER_AND_RIGHT:
+#        # Stay left to keep center
+#        cmd.follow_method = DriveCommand.FOLLOW_LEFT
+#        print("left not possible, defaulting to drive straight")
       else:
-        # Must be right turn available only
+        # Default to a right turn
         cmd.follow_method = DriveCommand.FOLLOW_RIGHT
         self.executing_turn = True
         print("left not possible, performing right turn")
@@ -165,12 +172,12 @@ class instructionFollower:
         cmd.velocity = velocity
         self.executing_instruction = True
         self.executing_turn = True
-      elif turns_possible == TurnsPossible.LEFT_AND_CENTER:
-        # Stay right to keep center
-        cmd.follow_method = DriveCommand.FOLLOW_RIGHT
-        print("right not possible, defaulting to drive straight")
+#      elif turns_possible == TurnsPossible.LEFT_AND_CENTER:
+#        # Stay right to keep center
+#        cmd.follow_method = DriveCommand.FOLLOW_RIGHT
+#        print("right not possible, defaulting to drive straight")
       else:
-        # Must be left turn available only
+        # Default to a left turn
         cmd.follow_method = DriveCommand.FOLLOW_LEFT
         self.executing_turn = True
         print("right not possible, performing left turn")
