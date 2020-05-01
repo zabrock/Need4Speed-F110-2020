@@ -15,6 +15,7 @@ class instructionFollower:
     self.pub = rospy.Publisher("drive_command", DriveCommand, queue_size=10)
     self.instruction_info_pub = rospy.Publisher("executing_instruction", DriveCommand, queue_size=10)
     self.instruction_complete_pub = rospy.Publisher("instruction_complete", Bool, queue_size=10)
+    self.request_instruction_pub = rospy.Publisher("request_instruction", Bool, queue_size=10)
 
     self.saved_instructions = instructions()
     self.saved_turn_state = TurnState()
@@ -27,12 +28,16 @@ class instructionFollower:
     self.executing_instruction = False
     self.executing_turn = False
     self.following_center = False
+    self.received_first_instruction = False
 
   def instructionCallback(self, msg):
     self.saved_instructions = msg
 
   def driveCommandCallback(self, msg):
     self.saved_next_instruction = msg
+    print("received new instruction: ")
+    print(self.saved_next_instruction)
+    self.received_first_instruction = True
 
   def turnStateCallback(self, msg):
     self.saved_turn_state = msg
@@ -42,6 +47,7 @@ class instructionFollower:
       if self.executing_instruction:
         print("finished instruction")
         self.instruction_complete_pub.publish(Bool(True))
+        self.executing_instruction = False
 
   def turnsPossibleCallback(self, msg):
     self.saved_turns_possible = msg
@@ -51,7 +57,11 @@ class instructionFollower:
     msg.velocity = DriveCommand.EMPTY_VELOCITY
     msg.follow_method = DriveCommand.EMPTY_FOLLOW_METHOD
 
-    if rospy.get_param("/instruction_follower_node/use_explicit_instructions"):
+    if not self.received_first_instruction:
+      # Request first instruction
+      print("Requesting first instruction")
+      self.request_instruction_pub.publish(Bool(True))
+    elif rospy.get_param("/instruction_follower_node/use_explicit_instructions"):
       # Get next instruction
       msg = self.explicitInstructionAlgorithm()
 
@@ -67,9 +77,26 @@ class instructionFollower:
       self.instruction_info_pub.publish(msg)
 
   def explicitInstructionAlgorithm(self):
+    follow_method = self.saved_next_instruction.follow_method
+    velocity = self.saved_next_instruction.velocity
+    turns_possible = self.saved_turns_possible.turns_possible
+
     # If car was previously executing a turn, continue to publish it
     if self.executing_turn:
-      return self.old_instruction
+      # It's possible the car missed one of the turns in leadup to corridor;
+      # if so and we see it, modify to follow the instruction
+      if not self.executing_instruction:
+        if turns_possible == TurnsPossible.LEFT_AND_RIGHT:
+          print("detected actual instruction, changing behavior")
+          cmd = self.old_instruction
+          cmd.follow_method = follow_method
+          cmd.velocity = velocity
+          self.executing_instruction = True
+          return cmd
+        else:
+          return self.old_instruction
+      else:
+        return self.old_instruction
 
     # If car was previously following center by instruction, check if we can assume center following is complete
     if self.following_center == True:
@@ -99,9 +126,7 @@ class instructionFollower:
       return cmd
 
     # Otherwise, try to determine which way to go
-    follow_method = self.saved_next_instruction.follow_method
-    velocity = self.saved_next_instruction.velocity
-    turns_possible = self.saved_turns_possible.turns_possible
+    
     
     if follow_method == DriveCommand.FOLLOW_LEFT:
       # Check if a left turn appears possible
@@ -160,14 +185,17 @@ class instructionFollower:
         self.center_start_time = rospy.Time.now()
       elif turns_possible == TurnsPossible.LEFT:
         cmd.follow_method = DriveCommand.FOLLOW_LEFT
+        print("turning left")
         self.executing_turn = True
       elif turns_possible == TurnsPossible.RIGHT:
         cmd.follow_method = DriveCommand.FOLLOW_RIGHT
         self.executing_turn = True
+        print("turning right")
       elif turns_possible == TurnsPossible.LEFT_AND_RIGHT:
         # Default to left turns
         cmd.follow_method = DriveCommand.FOLLOW_LEFT
         self.executing_turn = True
+        print("defaulting left")
 
     return cmd 
       
