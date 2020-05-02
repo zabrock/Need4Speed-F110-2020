@@ -74,8 +74,8 @@ class instructionFollower:
     self.pub.publish(msg)
     self.old_instruction = msg
     
-    if msg.velocity == self.saved_next_instruction.velocity and msg.follow_method == self.saved_next_instruction.follow_method:
-      self.instruction_info_pub.publish(msg)
+    if self.executing_instruction or self.following_center:
+      self.instruction_info_pub.publish(self.saved_next_instruction)
     else:
       msg = DriveCommand()
       msg.velocity = DriveCommand.EMPTY_VELOCITY
