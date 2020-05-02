@@ -138,18 +138,6 @@ need4speed_gap_finding::gaps gapFinder::get_turn_gaps(const std::vector<double>&
           gaps.gap_widths.push_back(gap_info.second);
         }
       }
-      // Check if the place after maximum range shifts down should also be considered
-      // as a gap
-      if(current_idx < lidar_ranges.size() && std::abs(lidar_ranges[current_idx-1] - lidar_ranges[current_idx]) > this->max_adjacent_pct_diff*lidar_ranges[current_idx-1])
-      {
-        // A gap has been found, so find where and how wide it is
-        std::pair<geometry_msgs::Vector3, std_msgs::Float64> gap_info = this->calculate_turn_gap(lidar_ranges, current_idx);
-        if(gap_info.second.data > this->min_acceptable_gap_width)
-        {
-          gaps.gap_centers.push_back(gap_info.first);
-          gaps.gap_widths.push_back(gap_info.second);
-        }
-      }
     }
     else if(current_idx < lidar_ranges.size()-1 && std::abs(lidar_ranges[current_idx] - lidar_ranges[current_idx+1]) > this->max_adjacent_pct_diff*lidar_ranges[current_idx])
     {
