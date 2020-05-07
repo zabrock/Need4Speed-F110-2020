@@ -27,7 +27,7 @@ class ScanMatching {
     const int MAX_ITERATIONS = 100;
     //Topic names for publishers and subscribers
     const string& SCAN_TOPIC  = "/scan";
-    const string& POSE_TOPIC = "/scan_match_pose";
+    const string& POSE_TOPIC = "/scan_match_location";
     const string& ODOM_TOPIC = "/odom";
     const string& FAKE_SCAN_TOPIC = "/fake_scan_match";
     const string& DRIVE_TOPIC = "/nav";
