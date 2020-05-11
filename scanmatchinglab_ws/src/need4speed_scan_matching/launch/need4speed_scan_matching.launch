@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find racecar_simulator)/launch/simulator.launch">
+        <arg name="map" value="$(find racecar_simulator)/maps/levine.yaml"/>
+  </include>
+
+  <!-- output="screen" allows us to see print statements-->
+  <node pkg="need4speed_scan_matching" name="scan_matcher_node" type="scan_matcher" output="screen"/> 
+  <node pkg="need4speed_scan_matching" name="scan_match_quality_node" type="scan_match_quality" output="screen"/>
+  <node pkg="need4speed_scan_matching" name="sim_connector_node" type="sim_connector.py" output="screen"/>
+
+</launch>

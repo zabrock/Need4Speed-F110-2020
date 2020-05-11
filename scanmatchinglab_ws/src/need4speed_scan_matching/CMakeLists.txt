@@ -206,3 +206,9 @@ add_executable(${PROJECT_NAME}_node src/scan_matching.cpp)
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+
+
+add_executable(scan_matcher src/scan_matcher.cpp)
+target_link_libraries(scan_matcher ${catkin_LIBRARIES})
+add_dependencies(scan_matcher need4speed_scan_matching_generate_messages_cpp)
