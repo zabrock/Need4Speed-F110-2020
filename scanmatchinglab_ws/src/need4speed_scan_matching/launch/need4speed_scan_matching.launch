@@ -82,6 +82,8 @@ n
 
   <!-- output="screen" allows us to see print statements-->
   <node pkg="need4speed_scan_matching" name="scan_matcher_node" type="scan_matcher" output="screen"/> 
-  <node pkg="need4speed_scan_matching" name="scan_match_quality_node" type="scan_match_quality" output="screen"/>
+  <node pkg="need4speed_scan_matching" name="scan_match_quality_node" type="scan_match_quality" output="screen">
+    <rosparam command="load" file="$(find need4speed_scan_matching)/config/scan_matching_config.yaml"/>
+  </node>
 
 </launch>

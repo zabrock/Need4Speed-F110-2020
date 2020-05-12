@@ -1,0 +1,2 @@
+float64 average_squared_position_error
+float64 average_squared_heading_error
