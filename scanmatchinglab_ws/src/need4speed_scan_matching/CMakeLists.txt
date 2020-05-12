@@ -135,7 +135,6 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node src/scan_matching.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -148,9 +147,9 @@ add_executable(${PROJECT_NAME}_node src/scan_matching.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(${PROJECT_NAME}_node
-   ${catkin_LIBRARIES}
-)
+# target_link_libraries(${PROJECT_NAME}_node
+#   ${catkin_LIBRARIES}
+#)
 
 #############
 ## Install ##
@@ -212,3 +211,7 @@ add_executable(${PROJECT_NAME}_node src/scan_matching.cpp)
 add_executable(scan_matcher src/scan_matcher.cpp)
 target_link_libraries(scan_matcher ${catkin_LIBRARIES})
 add_dependencies(scan_matcher need4speed_scan_matching_generate_messages_cpp)
+
+#add_executable(scan_match_quality src/scan_match_quality.cpp)
+#target_link_libraries(scan_match_quality ${catkin_LIBRARIES})
+#add_dependencies(scan_match_quality need4speed_scan_matching_generate_messages_cpp)

@@ -1,2 +1,0 @@
-need4speed_scan_matching
--DCATKIN_DEVEL_PREFIX=/home/ijoh82/ECE599/Hw05/Need4Speed-F110-2020/scanmatchinglab_ws/devel -DCMAKE_INSTALL_PREFIX=/home/ijoh82/ECE599/Hw05/Need4Speed-F110-2020/scanmatchinglab_ws/install -G Unix Makefiles

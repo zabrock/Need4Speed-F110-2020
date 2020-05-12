@@ -1,8 +1,0 @@
-prefix=/home/ijoh82/ECE599/Hw05/Need4Speed-F110-2020/scanmatchinglab_ws/install
-
-Name: need4speed_scan_matching
-Description: Description of need4speed_scan_matching
-Version: 0.0.1
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
