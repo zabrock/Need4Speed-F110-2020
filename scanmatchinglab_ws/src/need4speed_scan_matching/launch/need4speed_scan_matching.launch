@@ -43,7 +43,7 @@
 
   
   <!-- Launch RVIZ -->
-    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find need4speed_wall_following)/launch/wallfollow_visualization.rviz" output="screen"/>
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find need4speed_scan_matching)/launch/scan_matching_visualization.rviz" output="screen"/>
 
   <!-- Load the PID error and control nodes with the parameters from a YAML file -->
   <node pkg="wall_following" name="pid_error_node" type="pid_error.py" output="screen">

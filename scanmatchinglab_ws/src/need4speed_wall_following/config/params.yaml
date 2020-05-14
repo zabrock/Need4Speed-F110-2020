@@ -17,7 +17,7 @@ lookahead_distance: 0.3
 # Angle between rays used for wall distance calculation, degrees
 theta: 45
 # Desired distance from the wall, meters
-desired_distance: 0.7
+desired_distance: 0.75
 # Wall following method: left, center, or right
 follow_method: "left"
 # LIDAR range filtering parameters; set filter_lidar to true

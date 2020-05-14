@@ -215,3 +215,7 @@ add_dependencies(scan_matcher need4speed_scan_matching_generate_messages_cpp)
 add_executable(scan_match_quality src/scan_match_quality.cpp)
 target_link_libraries(scan_match_quality ${catkin_LIBRARIES})
 add_dependencies(scan_match_quality need4speed_scan_matching_generate_messages_cpp)
+
+add_executable(scan_match_quality_visualizer src/scan_match_quality_visualizer.cpp)
+target_link_libraries(scan_match_quality_visualizer ${catkin_LIBRARIES})
+add_dependencies(scan_match_quality_visualizer need4speed_scan_matching_generate_messages_cpp)

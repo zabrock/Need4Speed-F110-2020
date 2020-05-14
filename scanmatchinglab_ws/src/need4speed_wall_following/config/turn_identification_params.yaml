@@ -17,16 +17,16 @@ max_gap_distance: 2
 center_distance_threshold: 5
 min_gap_width: 0.7
 theta: 15
-cross_product_threshold: 0.75
+cross_product_threshold: 1.5
 
 # Explicit instruction parameters
-instruction_path: "/home/zeke/need4speed_ws/wallfollowlab_ws/src/need4speed_wall_following/explicit_instructions/instructions.csv"
+instruction_path: "/home/zeke/need4speed_ws/scanmatchinglab_ws/src/need4speed_wall_following/explicit_instructions/instructions.csv"
 use_explicit_instructions: true
 corridor_follow_method: center
-corridor_velocity: 2.0
+corridor_velocity: 1.5
 center_follow_min_time: 1.5
 
 # Turn state tracking parameters
 turn_init_threshold: deg(20)
-turn_complete_threshold: deg(12)
-wall_angle_threshold: deg(25)
+turn_complete_threshold: deg(15)
+wall_angle_threshold: deg(35)
