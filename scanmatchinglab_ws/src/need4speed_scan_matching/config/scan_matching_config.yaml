@@ -1,2 +1,6 @@
 # Error window size for scan_match_quality node
 window_size: 50
+
+# Maximum and minimum values for range on LaserScan
+range_max: 6.0
+range_min: 0.0

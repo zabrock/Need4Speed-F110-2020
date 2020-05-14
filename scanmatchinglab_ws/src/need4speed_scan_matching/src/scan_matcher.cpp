@@ -63,6 +63,9 @@ class ScanMatching {
     const string& FAKE_SCAN_TOPIC = "/fake_scan_match";
     const string& DRIVE_TOPIC = "/nav";
 
+    double range_max;
+    double range_min;
+
     //Publishers
     ros::Publisher pose_pub_;
     ros::Publisher fake_scan_pub_;
@@ -83,6 +86,10 @@ class ScanMatching {
       //Subscriber for odometry and laserscan
       odom_sub_ = nh_.subscribe(ODOM_TOPIC, 10, &ScanMatching::odom_callback, this);
       scan_sub_ = nh_.subscribe(SCAN_TOPIC, 1, &ScanMatching::scan_callback, this);
+      
+      // Get values for range_min, range_max for lidar readings
+      ros::param::get("/scan_matcher_node/range_max",this->range_max);
+      ros::param::get("/scan_matcher_node/range_min",this->range_min);
     }
 
     void odom_callback(const nav_msgs::Odometry::ConstPtr &odom_msg){
@@ -123,7 +130,12 @@ class ScanMatching {
       for (int i=0; i<scanDataSize; i++)
       {
         scanAnglCurr[i] = anglStart + anglInc * (i*indexInc+indexStart);
-        scanDistCurr[i] = msg->ranges[i*indexInc+indexStart];
+        double range_i = msg->ranges[i*indexInc+indexStart];
+        //if(range_i > this->range_max)
+        //  range_i = this->range_max;
+        //else if(range_i < this->range_min)
+        //  range_i = this->range_min;
+        scanDistCurr[i] = range_i;
       }
 
       // convert polar coord to XY coord
@@ -240,8 +252,11 @@ class ScanMatching {
         g << 0.0, 0.0, 0.0, 0.0;
         for (int i=0; i<scanDataSize; i++)
         {
+          if(scanDistCurr[i] > this->range_max)
+            continue;
           Eigen::MatrixXf Mi(2,4);
           Mi << 1.0, 0.0, scanXCurr[i], -scanYCurr[i],    0.0, 1.0, scanYCurr[i], scanXCurr[i];
+          //std::cout << i << endl << Mi << endl << endl;
 
           Eigen::Matrix2f Ci;
           float weight = 1.0;
@@ -414,6 +429,9 @@ class ScanMatching {
         // calculate the vector x
         Eigen::Vector4f x;
         x = -(2*M + 2*lambda*W).inverse().transpose() * g;
+        std::cout << "M: " << std::endl << M << std::endl;
+        std::cout << "g: " << std::endl << g << std::endl;
+        std::cout << "x: " << std::endl << x << std::endl;
 
         // update posX, posY, and orienZ
         posX = x(0);
