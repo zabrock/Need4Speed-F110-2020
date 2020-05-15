@@ -82,14 +82,14 @@ void matchErrorTracker::poseCallback(const geometry_msgs::PoseStamped::ConstPtr 
   double roll, pitch, yaw;
   tf::Matrix3x3(q).getRPY(roll,pitch,yaw);
   double theta = yaw;
-  ROS_INFO("True transform: %f %f %f", x, y, theta);
+  //ROS_INFO("True transform: %f %f %f", x, y, theta);
 
   double x_est = msg->pose.position.x;
   double y_est = msg->pose.position.y;
   tf::quaternionMsgToTF(msg->pose.orientation, q);
   tf::Matrix3x3(q).getRPY(roll,pitch,yaw);
   double theta_est = yaw;
-  ROS_INFO("Estimated transform: %f %f %f", x_est, y_est, theta_est);
+  //ROS_INFO("Estimated transform: %f %f %f", x_est, y_est, theta_est);
   
   // Increase window count until max
   if(this->window_n < this->window_size)

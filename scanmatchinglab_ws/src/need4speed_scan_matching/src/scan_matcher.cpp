@@ -134,20 +134,12 @@ class ScanMatching {
       double anglInc   = 1.5 * M_PI / 1080.0;
       int indexStart = 1080 % scanDataSize / 2;
       int indexInc   = 1080 / scanDataSize;
-      //std::cout << "ranges: ";
       for (int i=0; i<scanDataSize; i++)
       {
         scanAnglCurr[i] = anglStart + anglInc * (i*indexInc+indexStart);
         double range_i = msg->ranges[i*indexInc+indexStart];
-        //if(range_i > this->range_max)
-        //  range_i = this->range_max;
-        //else if(range_i < this->range_min)
-        //  range_i = this->range_min;
         scanDistCurr[i] = range_i;
-        //std::cout << range_i << " ";
       }
-      //std::cout << std::endl;
-      //std::cout << "Got scan\n";
       // convert polar coord to XY coord
       for (int i=0; i<scanDataSize; i++)
       {
@@ -179,6 +171,8 @@ class ScanMatching {
       // use the coord transform as the first guess
       double posX   = (dxGlobal*unitVecYy - dyGlobal*unitVecYx) / (unitVecXx*unitVecYy - unitVecXy*unitVecYx);
       double posY   = (dyGlobal*unitVecXx - dxGlobal*unitVecXy) / (unitVecXx*unitVecYy - unitVecXy*unitVecYx);
+      double odomX = posX;
+      double odomY = posY;
       double orienZ = odomOrienZCurr - odomOrienZPrev;
       double posXPrev   = posX;
       double posYPrev   = posY;
@@ -427,7 +421,6 @@ class ScanMatching {
           x(2) = 1;
         else if(x(2) < -1)
           x(2) = -1;
-        //std::cout << "x: " << std::endl << x << std::endl;
 
         // update posX, posY, and orienZ
         posX = x(0);
@@ -462,7 +455,7 @@ class ScanMatching {
         posYPrev = posY;
         orienZPrev = orienZ;
       } // end 'for k' (iteration of entire algorithm)
-      std::cout << "Iterations: " << num_iter << std::endl;
+      //std::cout << "Iterations: " << num_iter << std::endl;
       // ---------- end my code -------------------------------------
 
       //4.Publish the estimated pose from scan matching based on the transform obstained. You can visualize the pose in rviz.
@@ -477,7 +470,6 @@ class ScanMatching {
       double globalUnit_XPrev_yComp =  sin(globalOrienZPrev);
       double globalUnit_YPrev_xComp = -sin(globalOrienZPrev);
       double globalUnit_YPrev_yComp =  cos(globalOrienZPrev);
-
       // compute new global pos and orien
       globalPosXCurr = globalPosXPrev + posX*globalUnit_XPrev_xComp + posY*globalUnit_YPrev_xComp;
       globalPosYCurr = globalPosYPrev + posX*globalUnit_XPrev_yComp + posY*globalUnit_YPrev_yComp;
