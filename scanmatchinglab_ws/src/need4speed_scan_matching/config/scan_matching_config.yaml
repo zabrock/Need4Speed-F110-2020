@@ -4,3 +4,10 @@ window_size: 50
 # Maximum and minimum values for range on LaserScan
 range_max: 6.0
 range_min: 0.0
+
+# Convergence for Censi point-to-line algorithm
+position_convergence_error: 0.001
+angle_convergence_error: 0.001
+
+max_iterations: 20
+num_scan_points: 108

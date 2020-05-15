@@ -10,39 +10,39 @@
 #include <nav_msgs/Odometry.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 
 using namespace std;
 
-// ---------- start my code -----------------------------------------
 #include <eigen3/Eigen/Dense>    // for matrix computation
 
 int numOfIter = 3;    // num of iteration of algorithm
 
 int scanDataSize = 108;                           // num of laserscan pts to use
-std::vector<float> scanXCurr   (scanDataSize, 0.0);  // laserscan
-std::vector<float> scanYCurr   (scanDataSize, 0.0);
-std::vector<float> scanAnglCurr(scanDataSize, 0.0);
-std::vector<float> scanDistCurr(scanDataSize, 0.0);
-std::vector<float> scanXPrev   (scanDataSize, 0.0);
-std::vector<float> scanYPrev   (scanDataSize, 0.0);
-std::vector<float> scanAnglPrev(scanDataSize, 0.0);
-std::vector<float> scanDistPrev(scanDataSize, 0.0);
+std::vector<double> scanXCurr   (scanDataSize, 0.0);  // laserscan
+std::vector<double> scanYCurr   (scanDataSize, 0.0);
+std::vector<double> scanAnglCurr(scanDataSize, 0.0);
+std::vector<double> scanDistCurr(scanDataSize, 0.0);
+std::vector<double> scanXPrev   (scanDataSize, 0.0);
+std::vector<double> scanYPrev   (scanDataSize, 0.0);
+std::vector<double> scanAnglPrev(scanDataSize, 0.0);
+std::vector<double> scanDistPrev(scanDataSize, 0.0);
 
-float odomPosXCurr   = 0.0;                       // odometry
-float odomPosYCurr   = 0.0;
-float odomOrienZCurr = 0.0;
-float odomPosXPrev   = 0.0;
-float odomPosYPrev   = 0.0;
-float odomOrienZPrev = 0.0;
+double odomPosXCurr   = 0.0;                       // odometry
+double odomPosYCurr   = 0.0;
+double odomOrienZCurr = 0.0;
+double odomPosXPrev   = 0.0;
+double odomPosYPrev   = 0.0;
+double odomOrienZPrev = 0.0;
 
-float globalPosXCurr   = 0.0;
-float globalPosYCurr   = 0.0;
-float globalOrienZCurr = 0.0;
-float globalPosXPrev   = 0.0;
-float globalPosYPrev   = 0.0;
-float globalOrienZPrev = 0.0;
-// ---------- end my code -------------------------------------------
+double globalPosXCurr   = 0.0;
+double globalPosYCurr   = 0.0;
+double globalOrienZCurr = 0.0;
+double globalPosXPrev   = 0.0;
+double globalPosYPrev   = 0.0;
+double globalOrienZPrev = 0.0;
 
 
 class ScanMatching {
@@ -65,6 +65,12 @@ class ScanMatching {
 
     double range_max;
     double range_min;
+    double posConverge;
+    double angleConverge;
+
+    bool init;
+
+    int max_iter;
 
     //Publishers
     ros::Publisher pose_pub_;
@@ -90,11 +96,15 @@ class ScanMatching {
       // Get values for range_min, range_max for lidar readings
       ros::param::get("/scan_matcher_node/range_max",this->range_max);
       ros::param::get("/scan_matcher_node/range_min",this->range_min);
+      ros::param::get("/scan_matcher_node/max_iterations",this->max_iter);
+      ros::param::get("/scan_matcher_node/position_convergence_error",this->posConverge);
+      ros::param::get("/scan_matcher_node/angle_convergence_error",this->angleConverge);
+      this->init = true;
     }
 
     void odom_callback(const nav_msgs::Odometry::ConstPtr &odom_msg){
       //get odometry information from odometry topic
-      // ---------- start my code -----------------------------------
+
       // update old data
       odomPosXPrev   = odomPosXCurr;
       odomPosYPrev   = odomPosYCurr;
@@ -111,22 +121,22 @@ class ScanMatching {
       tf::Matrix3x3 rpyMat(qt);
       rpyMat.getRPY(roll, pitch, yaw);
       odomOrienZCurr = yaw;
-      // ---------- end my code -------------------------------------
     }
 
     void scan_callback(const sensor_msgs::LaserScan::ConstPtr& msg){
       //get laserscan data from the scan topic
-      // ---------- start my code -----------------------------------
+
       // update old data
       scanXPrev = scanXCurr;
       scanYPrev = scanYCurr;
       scanAnglPrev = scanAnglCurr;
       scanDistPrev = scanDistCurr;
       // pick subset of data and store the angle and distance data
-      float anglStart = -0.75 * M_PI;
-      float anglInc   = 1.5 * M_PI / 1080.0;
+      double anglStart = -0.75 * M_PI;
+      double anglInc   = 1.5 * M_PI / 1080.0;
       int indexStart = 1080 % scanDataSize / 2;
       int indexInc   = 1080 / scanDataSize;
+      //std::cout << "ranges: ";
       for (int i=0; i<scanDataSize; i++)
       {
         scanAnglCurr[i] = anglStart + anglInc * (i*indexInc+indexStart);
@@ -136,8 +146,10 @@ class ScanMatching {
         //else if(range_i < this->range_min)
         //  range_i = this->range_min;
         scanDistCurr[i] = range_i;
+        //std::cout << range_i << " ";
       }
-
+      //std::cout << std::endl;
+      //std::cout << "Got scan\n";
       // convert polar coord to XY coord
       for (int i=0; i<scanDataSize; i++)
       {
@@ -145,13 +157,12 @@ class ScanMatching {
         scanYCurr[i] = scanDistCurr[i] * sin(scanAnglCurr[i]);
       }
       
-      // run scan matching
-      do_scan_matching();
-      // ---------- end my code -------------------------------------
+      // run scan matching if we have a previous scan
+      if(init)
+        init = false;
+      else
+        do_scan_matching();
     }
-
-
-
 
     void do_scan_matching() {
       //The following steps are inspired from the Censi's PL-ICP paper. 
@@ -160,91 +171,70 @@ class ScanMatching {
       //1.Compute the coordinates of the second scan’s points in the first scan’s frame of reference, 
       //  according to the roto-translation obtained from odometry update.
 
-      // ---------- start my code -----------------------------------
       // calculate coord transform from last coord, using odometry data
-      float dxGlobal = odomPosXCurr - odomPosXPrev;
-      float dyGlobal = odomPosYCurr - odomPosYPrev;
-      float unitVecXx =  cos(odomOrienZPrev);
-      float unitVecXy =  sin(odomOrienZPrev);
-      float unitVecYx = -sin(odomOrienZPrev);
-      float unitVecYy =  cos(odomOrienZPrev);
+      double dxGlobal = odomPosXCurr - odomPosXPrev;
+      double dyGlobal = odomPosYCurr - odomPosYPrev;
+      double unitVecXx =  cos(odomOrienZPrev);
+      double unitVecXy =  sin(odomOrienZPrev);
+      double unitVecYx = -sin(odomOrienZPrev);
+      double unitVecYy =  cos(odomOrienZPrev);
       // use the coord transform as the first guess
-      float posXGuess   = (dxGlobal*unitVecYy - dyGlobal*unitVecYx) / (unitVecXx*unitVecYy - unitVecXy*unitVecYx);
-      float posYGuess   = (dyGlobal*unitVecXx - dxGlobal*unitVecXy) / (unitVecXx*unitVecYy - unitVecXy*unitVecYx);
-      float orienZGuess = odomOrienZCurr - odomOrienZPrev;
-      float posX   = posXGuess;
-      float posY   = posYGuess;
-      float orienZ = orienZGuess;
-
+      double posX   = (dxGlobal*unitVecYy - dyGlobal*unitVecYx) / (unitVecXx*unitVecYy - unitVecXy*unitVecYx);
+      double posY   = (dyGlobal*unitVecXx - dxGlobal*unitVecXy) / (unitVecXx*unitVecYy - unitVecXy*unitVecYx);
+      double orienZ = odomOrienZCurr - odomOrienZPrev;
+      double posXPrev   = posX;
+      double posYPrev   = posY;
+      double orienZPrev = orienZ;
+      int num_iter{0};
       // === repeat the entire algorithm k times ===
-      for (int k=0; k<numOfIter; k++)
+      for (int k=0; k<this->max_iter; k++)
       {
+        num_iter++;
         // Compute 2nd scan's pts in 1st scan's frame
-        std::vector<float> scanXCurr_PrevFrame(scanDataSize, 0.0);
-        std::vector<float> scanYCurr_PrevFrame(scanDataSize, 0.0); 
+        std::vector<double> scanXCurr_PrevFrame(scanDataSize, 0.0);
+        std::vector<double> scanYCurr_PrevFrame(scanDataSize, 0.0); 
         for (int i=0; i<scanDataSize; i++)
         {
           scanXCurr_PrevFrame[i] = scanXCurr[i]*cos(orienZ) - scanYCurr[i]*sin(orienZ) + posX;
           scanYCurr_PrevFrame[i] = scanXCurr[i]*sin(orienZ) + scanYCurr[i]*cos(orienZ) + posY;
         }
-        // ---------- end my code -----------------------------------
 
         //2.Find correspondence between points of the current and previous frame. You can use naive way of looking 
         //  through all points in sequence or use radial ordering of laser points to speed up the search.
 
-        // ---------- start my code ---------------------------------
-        std::vector<float> normX(scanDataSize, 0.0);      // norm: unit norm vector
-        std::vector<float> normY(scanDataSize, 0.0);
-        std::vector<int>   normNeighborIndex(scanDataSize, 0.0);  // (=j1). index of nearest scanPrev, where 
+        std::vector<double> normX(scanDataSize, 0.0);      // norm: unit norm vector
+        std::vector<double> normY(scanDataSize, 0.0);
+        std::vector<int> normNeighborIndex(scanDataSize, 0.0);  // (=j1). index of nearest scanPrev, where 
                                                                   //   scanCurr_PrevFrame is located
-
-        for (int i=0; i<scanDataSize; i++)
+        // For each point in current scan, find closest line segment in previous surface
+        for(int i{0}; i < scanDataSize; i++)
         {
-          // compute the angle of scanPrevFrame
-          // (note: atan() output is limited between -pi/2 and pi/2)
-          float anglScanPrevFrame = atan(scanYCurr_PrevFrame[i] / scanXCurr_PrevFrame[i]);
-          if (scanXCurr_PrevFrame[i]<0)
+          std::vector<double> dist_sqd;
+          for(int j{0}; j < scanDataSize; j++)
           {
-            if (anglScanPrevFrame > 0)    // quadrant 3
-            {
-              anglScanPrevFrame = anglScanPrevFrame - M_PI;
-            }
-            else if (anglScanPrevFrame < 0)  //quadrant2
-            {
-              anglScanPrevFrame = anglScanPrevFrame + M_PI;
-            }
+            dist_sqd.push_back( pow(scanXCurr_PrevFrame[i]-scanXPrev[j],2) + pow(scanYCurr_PrevFrame[i]-scanYPrev[j],2) );
           }
-        
-          // compute j1X, j1Y, j2X, j2Y
-          float j1X, j1Y, j2X, j2Y;
-          for (int j=0; j<scanDataSize-1; j++)  // (until 2nd last)
+          normNeighborIndex[i] = std::min_element(dist_sqd.begin(),dist_sqd.end()) - dist_sqd.begin();
+
+          if(normNeighborIndex[i] == 0 || (normNeighborIndex[i] < scanDataSize-1 && dist_sqd[normNeighborIndex[i]+1] < dist_sqd[normNeighborIndex[i]-1]))
           {
-            if (scanAnglPrev[j] <= anglScanPrevFrame  &&  scanAnglPrev[j+1] > anglScanPrevFrame)
-            {
-              j1X = scanXPrev[j];
-              j1Y = scanYPrev[j];
-              j2X = scanXPrev[j+1];
-              j2Y = scanYPrev[j+1];
-              normNeighborIndex[i] = j;
-            }
-          } // end 'for j'
-          float tanSlope = (j2Y-j1Y) / (j2X-j1X);
-          float normSlope = -1.0 / tanSlope;
-          float normLeng  = sqrt(1.0 + normSlope*normSlope);
-          normX[i] = 1.0       / normLeng;
-          normY[i] = normSlope / normLeng;
-        } // end 'for i'
-        // handle the special case
-        if (normNeighborIndex[scanDataSize-1] == 0)
-        {
-          normNeighborIndex[scanDataSize-1] = scanDataSize-1;
+            // Calculate normal vector to line segment after closest point
+            double segment_length = sqrt(pow(scanXPrev[normNeighborIndex[i]+1]-scanXPrev[normNeighborIndex[i]],2) + pow(scanYPrev[normNeighborIndex[i]+1]-scanYPrev[normNeighborIndex[i]],2));
+            normX[i] = -(scanYPrev[normNeighborIndex[i]+1]-scanYPrev[normNeighborIndex[i]])/segment_length;
+            normY[i] = (scanXPrev[normNeighborIndex[i]+1]-scanXPrev[normNeighborIndex[i]])/segment_length;
+          }
+          else
+          {
+            // Calculate normal vector to line segment before closest point
+            double segment_length = sqrt(pow(scanXPrev[normNeighborIndex[i]]-scanXPrev[normNeighborIndex[i]-1],2) + pow(scanYPrev[normNeighborIndex[i]]-scanYPrev[normNeighborIndex[i]-1],2));
+            normX[i] = -(scanYPrev[normNeighborIndex[i]]-scanYPrev[normNeighborIndex[i]-1])/segment_length;
+            normY[i] = (scanXPrev[normNeighborIndex[i]]-scanXPrev[normNeighborIndex[i]-1])/segment_length;
+          }
         }
-        // ---------- end my code -----------------------------------
 
         //3. Based on the correspondences, find the necessary tranform.
         //3.a. Construct the necessary matrices as shown in the paper for solution with Lagrange's multipliers.
 
-        // ---------- start my code ---------------------------------
         // compute matrix M and vector g
         Eigen::Matrix4f M;
         M << 0.0, 0.0, 0.0, 0.0,   0.0, 0.0, 0.0, 0.0,   0.0, 0.0, 0.0, 0.0,   0.0, 0.0, 0.0, 0.0;
@@ -253,19 +243,20 @@ class ScanMatching {
         for (int i=0; i<scanDataSize; i++)
         {
           if(scanDistCurr[i] > this->range_max)
+          {
             continue;
+          }
           Eigen::MatrixXf Mi(2,4);
           Mi << 1.0, 0.0, scanXCurr[i], -scanYCurr[i],    0.0, 1.0, scanYCurr[i], scanXCurr[i];
-          //std::cout << i << endl << Mi << endl << endl;
 
           Eigen::Matrix2f Ci;
-          float weight = 1.0;
+          double weight = 1.0;
           Ci << normX[i]*normX[i],  normX[i]*normY[i],  normY[i]*normX[i],  normY[i]*normY[i];
           Ci = Ci * weight;
 
           Eigen::Vector2f PIi;
-          float PIiX = scanXPrev[normNeighborIndex[i]];
-          float PIiY = scanYPrev[normNeighborIndex[i]];
+          double PIiX = scanXPrev[normNeighborIndex[i]];
+          double PIiY = scanYPrev[normNeighborIndex[i]];
           PIi << PIiX, PIiY;
         
           M = M + (Mi.transpose() * Ci * Mi);
@@ -287,13 +278,11 @@ class ScanMatching {
         S = D - B.transpose() * A.inverse() * B;
 
         Eigen::Matrix2f SA;
-        SA = S.determinant() * S.inverse();
-        // ---------- end my code -----------------------------------
+        SA = S.determinant() * S.inverse();\
 
         //3.b. You should get a fourth order polynomial in lamda which you can solve to get value
         //     (hint:greatest real root of polynomial equn) of lamda.
 
-        // ---------- start my code ---------------------------------
         // get matrix expression on left-hand-side of eqn (31) in Censi's paper
         Eigen::Matrix4f matInCoeff2;
         matInCoeff2 << A.inverse() * B * B.transpose() * A.inverse().transpose(),
@@ -312,43 +301,43 @@ class ScanMatching {
                        SA.transpose() * SA;
 
         // get the coefficients of 4th-order polynomial        
-        float coeff4 = -16.0;
-        float coeff3 = -16.0*(S(0,0)+S(1,1));
-        float coeff2 = 4.0*g.transpose()*matInCoeff2*g - 8.0*(S(0,0)*S(1,1)-S(0,1)*S(1,0)) - 4.0*(S(0,0)+S(1,1))*(S(0,0)+S(1,1));
-        float coeff1 = 4.0*g.transpose()*matInCoeff1*g - 4.0*(S(0,0)+S(1,1))*(S(0,0)*S(1,1)-S(0,1)*S(1,0));
-        float coeff0 =     g.transpose()*matInCoeff0*g - (S(0,0)*S(1,1)-S(0,1)*S(1,0))*(S(0,0)*S(1,1)-S(0,1)*S(1,0));
+        double coeff4 = -16.0;
+        double coeff3 = -16.0*(S(0,0)+S(1,1));
+        double coeff2 = 4.0*g.transpose()*matInCoeff2*g - 8.0*(S(0,0)*S(1,1)-S(0,1)*S(1,0)) - 4.0*(S(0,0)+S(1,1))*(S(0,0)+S(1,1));
+        double coeff1 = 4.0*g.transpose()*matInCoeff1*g - 4.0*(S(0,0)+S(1,1))*(S(0,0)*S(1,1)-S(0,1)*S(1,0));
+        double coeff0 =     g.transpose()*matInCoeff0*g - (S(0,0)*S(1,1)-S(0,1)*S(1,0))*(S(0,0)*S(1,1)-S(0,1)*S(1,0));
 
         // solve the 4th-order polynomial
-        float lambda =  0.0;
-        float lambda0 = 0.0;
-        float lambda1 = 0.0;
-        float lambda2 = 0.0;
-        float lambda3 = 0.0;
+        double lambda =  0.0;
+        double lambda0 = 0.0;
+        double lambda1 = 0.0;
+        double lambda2 = 0.0;
+        double lambda3 = 0.0;
         bool isLambda0Real = false;
         bool isLambda1Real = false;
         bool isLambda2Real = false;
         bool isLambda3Real = false;
 
 /*        //method 1: from https://math.stackexchange.com/questions/785/is-there-a-general-formula-for-solving-4th-degree-equations-quartic
-        float p1 = 2*coeff2*coeff2*coeff2 - 9*coeff3*coeff2*coeff1 + 27*coeff4*coeff1*coeff1
+        double p1 = 2*coeff2*coeff2*coeff2 - 9*coeff3*coeff2*coeff1 + 27*coeff4*coeff1*coeff1
                    + 27*coeff3*coeff3*coeff0 - 72*coeff4*coeff2*coeff0;
         if (-4 * (coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0) 
                * (coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0)
                * (coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0) 
              + p1*p1 >=0 )
         {
-          float p2 = p1 + sqrt(-4 
+          double p2 = p1 + sqrt(-4 
                      * (coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0) 
                      * (coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0)
                      * (coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0) 
                      + p1*p1);
-          float p3 = (coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0) / (3*coeff4*cbrt(p2/2))
+          double p3 = (coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0) / (3*coeff4*cbrt(p2/2))
                      + cbrt(p2/2) / (3*coeff4);
           if ( (coeff3*coeff3) / (4*coeff4*coeff4) - (2*coeff2) / (3*coeff4) + p3 >= 0 )
           {
-            float p4 = sqrt( (coeff3*coeff3)/(4*coeff4*coeff4) - (2*coeff2)/(3*coeff4) + p3 );
-            float p5 = (coeff3*coeff3)/(2*coeff4*coeff4) - (4*coeff2)/(3*coeff4) - p3;
-            float p6 = (-coeff3*coeff3*coeff3/coeff4/coeff4/coeff4 
+            double p4 = sqrt( (coeff3*coeff3)/(4*coeff4*coeff4) - (2*coeff2)/(3*coeff4) + p3 );
+            double p5 = (coeff3*coeff3)/(2*coeff4*coeff4) - (4*coeff2)/(3*coeff4) - p3;
+            double p6 = (-coeff3*coeff3*coeff3/coeff4/coeff4/coeff4 
                         + 4*coeff3*coeff2/coeff4/coeff4 - 8*coeff1/coeff4) / (4*p4);
             if (p5 - p6 >= 0)
             {
@@ -364,22 +353,22 @@ class ScanMatching {
         }
 */
       // Method 2: from https://en.wikipedia.org/wiki/Quartic_function
-        float polyP = (8*coeff4*coeff2 - 3*coeff3*coeff3) / (8*coeff4*coeff4);
-        float polyQ = (coeff3*coeff3*coeff3 - 4*coeff4*coeff3*coeff2 + 8*coeff4*coeff4*coeff1) / (8*coeff4*coeff4*coeff4);
-        float polyDel0 = coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0;
-        float polyDel1 = 2*coeff2*coeff2*coeff2 - 9*coeff3*coeff2*coeff1 + 27*coeff3*coeff3*coeff0
+        double polyP = (8*coeff4*coeff2 - 3*coeff3*coeff3) / (8*coeff4*coeff4);
+        double polyQ = (coeff3*coeff3*coeff3 - 4*coeff4*coeff3*coeff2 + 8*coeff4*coeff4*coeff1) / (8*coeff4*coeff4*coeff4);
+        double polyDel0 = coeff2*coeff2 - 3*coeff3*coeff1 + 12*coeff4*coeff0;
+        double polyDel1 = 2*coeff2*coeff2*coeff2 - 9*coeff3*coeff2*coeff1 + 27*coeff3*coeff3*coeff0
                        + 27*coeff4*coeff1*coeff1 - 72*coeff4*coeff2*coeff0;
         if (polyDel1*polyDel1 - 4*polyDel0*polyDel0*polyDel0 >= 0)  // to avoid complx root
         {
-          printf("pass QQ, ");
-          float polyQQ = cbrt( (polyDel1 + sqrt(polyDel1*polyDel1 - 4*polyDel0*polyDel0*polyDel0)) / 2 );
+          //printf("pass QQ, ");
+          double polyQQ = cbrt( (polyDel1 + sqrt(polyDel1*polyDel1 - 4*polyDel0*polyDel0*polyDel0)) / 2 );
           if (-2*polyP + 1/coeff4 * (polyQQ + polyDel0/polyQQ) >= 0)  // to avoid complex root
           {
-            printf("pass SS, ");
-            float polySS = 1/2 * sqrt( -2/3*polyP + 1/(3*coeff4) * (polyQQ + polyDel0/polyQQ) );
+            //printf("pass SS, ");
+            double polySS = 1/2 * sqrt( -2/3*polyP + 1/(3*coeff4) * (polyQQ + polyDel0/polyQQ) );
             if (-4*polySS*polySS - 2*polyP + polyQ/polySS >= 0)  // to avoid complex root, get lambda 0,1
             {
-              printf("pass lam01, ");
+              //printf("pass lam01, ");
               lambda0 = -coeff3/(4*coeff4) - polySS + 1/2*sqrt(-4*polySS*polySS - 2*polyP + polyQ/polySS );
               lambda1 = -coeff3/(4*coeff4) - polySS - 1/2*sqrt(-4*polySS*polySS - 2*polyP + polyQ/polySS );
               isLambda0Real = true;
@@ -387,7 +376,7 @@ class ScanMatching {
             }
             if (-4*polySS*polySS - 2*polyP - polyQ/polySS >= 0)  // to avoid complex root, get lambda 2,3
             {
-              printf("pass lam23, ");
+              //printf("pass lam23, ");
               lambda2 = -coeff3/(4*coeff4) + polySS + 1/2*sqrt(-4*polySS*polySS - 2*polyP - polyQ/polySS );
               lambda3 = -coeff3/(4*coeff4) + polySS - 1/2*sqrt(-4*polySS*polySS - 2*polyP - polyQ/polySS );
               isLambda2Real = true;
@@ -428,10 +417,19 @@ class ScanMatching {
         // ---------- start my code ---------------------------------
         // calculate the vector x
         Eigen::Vector4f x;
+        if(std::isnan(lambda))
+          lambda = 0.01;
+        //std::cout << "lambda: " << lambda << std::endl;
         x = -(2*M + 2*lambda*W).inverse().transpose() * g;
-        std::cout << "M: " << std::endl << M << std::endl;
-        std::cout << "g: " << std::endl << g << std::endl;
-        std::cout << "x: " << std::endl << x << std::endl;
+        if(x(3) > 1)
+          x(3) = 1;
+        else if(x(3) < -1)
+          x(3) = -1;
+        if(x(2) > 1)
+          x(2) = 1;
+        else if(x(2) < -1)
+          x(2) = -1;
+        //std::cout << "x: " << std::endl << x << std::endl;
 
         // update posX, posY, and orienZ
         posX = x(0);
@@ -455,8 +453,18 @@ class ScanMatching {
         {
           orienZ = (-acos(x(2)) + asin(x(3)) ) / 2;
         }
-      } // end 'for k' (iteration of entire algorithm)
 
+        // Determine if convergence has been reached
+        double delta_pos = std::sqrt(pow(posX - posXPrev,2) + pow(posY - posYPrev,2));
+        double delta_angle = std::abs(orienZ - orienZPrev);
+        if(delta_pos < this->posConverge && delta_angle < this->angleConverge)
+          break;
+        // Prepare for next iteration
+        posXPrev = posX;
+        posYPrev = posY;
+        orienZPrev = orienZ;
+      } // end 'for k' (iteration of entire algorithm)
+      std::cout << "Iterations: " << num_iter << std::endl;
       // ---------- end my code -------------------------------------
 
       //4.Publish the estimated pose from scan matching based on the transform obstained. You can visualize the pose in rviz.
@@ -464,25 +472,39 @@ class ScanMatching {
       // ---------- start my code -----------------------------------
       // store new data into old data
       globalPosXPrev   = globalPosXCurr;
-      globalPosYPrev   = globalPosXCurr;
+      globalPosYPrev   = globalPosYCurr;
       globalOrienZPrev = globalOrienZCurr;
+      //std::cout << "globalXPrev: " << globalPosXPrev << " globalYPrev: " << globalPosYPrev << " globalThetaPrev: " << globalOrienZPrev << std::endl;
 
       // get unit vector of prev coord in global frame
-      float globalUnit_XPrev_xComp =  cos(globalOrienZPrev);
-      float globalUnit_XPrev_yComp =  sin(globalOrienZPrev);
-      float globalUnit_YPrev_xComp = -cos(globalOrienZPrev);
-      float globalUnit_YPrev_yComp =  sin(globalOrienZPrev);
+      double globalUnit_XPrev_xComp =  cos(globalOrienZPrev);
+      double globalUnit_XPrev_yComp =  sin(globalOrienZPrev);
+      double globalUnit_YPrev_xComp = -cos(globalOrienZPrev);
+      double globalUnit_YPrev_yComp =  sin(globalOrienZPrev);
 
       // compute new global pos and orien
       globalPosXCurr = globalPosXPrev + posX*globalUnit_XPrev_xComp + posY*globalUnit_YPrev_xComp;
       globalPosYCurr = globalPosYPrev + posX*globalUnit_XPrev_yComp + posY*globalUnit_YPrev_yComp;
       globalOrienZCurr = globalOrienZPrev + orienZ;
+      std::cout << "globalX: " << globalPosXCurr << " globalY: " << globalPosYCurr << " globalTheta: " << globalOrienZCurr << std::endl;
+      
+      geometry_msgs::PoseStamped new_pose;
+      new_pose.header.frame_id = "/map";
+      new_pose.header.stamp = ros::Time::now();
+      new_pose.pose.position.x = globalPosXCurr;
+      new_pose.pose.position.y = globalPosYCurr;
+      
+      tf2::Quaternion quat;
+      quat.setRPY(0,0,globalOrienZCurr);
+      new_pose.pose.orientation = tf2::toMsg(quat);
+
+      this->pose_pub_.publish(new_pose);
       // ---------- end my code -------------------------------------
 
       //5.Also transform the previous frame laserscan points using the roto-translation transform obtained and visualize it.
       //Ideally, this should coincide with your actual current laserscan message.
 
-
+    
     }
     ~ScanMatching() {}
 };
@@ -491,7 +513,6 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "scan_matcher");
   ros::NodeHandle nh;
   ScanMatching scan_matching(nh);
-  scan_matching.do_scan_matching();
   ros::spin();
   return 0;
 }
