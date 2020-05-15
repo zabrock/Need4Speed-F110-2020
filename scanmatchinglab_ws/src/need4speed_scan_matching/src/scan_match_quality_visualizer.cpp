@@ -22,7 +22,7 @@ class scanMatchErrorVisualizer
 
 scanMatchErrorVisualizer::scanMatchErrorVisualizer() :
   nh(ros::NodeHandle()),
-  error_sub(nh.subscribe("scan_match_quality", 100, &scanMatchErrorVisualizer::errorCallback, this))
+  error_sub(nh.subscribe("scan_match_error", 100, &scanMatchErrorVisualizer::errorCallback, this))
 {
   this->error_viz_pub = this->nh.advertise<visualization_msgs::Marker>("scan_match_error_visualization", 1);
   this->movingAverageAngleError = 0.0;

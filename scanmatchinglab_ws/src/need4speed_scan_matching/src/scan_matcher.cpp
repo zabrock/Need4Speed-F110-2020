@@ -18,9 +18,7 @@ using namespace std;
 
 #include <eigen3/Eigen/Dense>    // for matrix computation
 
-int numOfIter = 3;    // num of iteration of algorithm
-
-int scanDataSize = 108;                           // num of laserscan pts to use
+const int scanDataSize = 108;                           // num of laserscan pts to use
 std::vector<double> scanXCurr   (scanDataSize, 0.0);  // laserscan
 std::vector<double> scanYCurr   (scanDataSize, 0.0);
 std::vector<double> scanAnglCurr(scanDataSize, 0.0);
@@ -87,7 +85,7 @@ class ScanMatching {
       cout<<"Node started..\n";
       //Publishers : Add others as per your need
       drive_pub_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>(DRIVE_TOPIC, 1);
-      fake_scan_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(FAKE_SCAN_TOPIC, 1);
+      fake_scan_pub_ = nh_.advertise<visualization_msgs::Marker>(FAKE_SCAN_TOPIC, 1);
       pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(POSE_TOPIC, 1);
       //Subscriber for odometry and laserscan
       odom_sub_ = nh_.subscribe(ODOM_TOPIC, 10, &ScanMatching::odom_callback, this);
@@ -469,24 +467,21 @@ class ScanMatching {
 
       //4.Publish the estimated pose from scan matching based on the transform obstained. You can visualize the pose in rviz.
 
-      // ---------- start my code -----------------------------------
       // store new data into old data
       globalPosXPrev   = globalPosXCurr;
       globalPosYPrev   = globalPosYCurr;
       globalOrienZPrev = globalOrienZCurr;
-      //std::cout << "globalXPrev: " << globalPosXPrev << " globalYPrev: " << globalPosYPrev << " globalThetaPrev: " << globalOrienZPrev << std::endl;
 
       // get unit vector of prev coord in global frame
       double globalUnit_XPrev_xComp =  cos(globalOrienZPrev);
       double globalUnit_XPrev_yComp =  sin(globalOrienZPrev);
-      double globalUnit_YPrev_xComp = -cos(globalOrienZPrev);
-      double globalUnit_YPrev_yComp =  sin(globalOrienZPrev);
+      double globalUnit_YPrev_xComp = -sin(globalOrienZPrev);
+      double globalUnit_YPrev_yComp =  cos(globalOrienZPrev);
 
       // compute new global pos and orien
       globalPosXCurr = globalPosXPrev + posX*globalUnit_XPrev_xComp + posY*globalUnit_YPrev_xComp;
       globalPosYCurr = globalPosYPrev + posX*globalUnit_XPrev_yComp + posY*globalUnit_YPrev_yComp;
       globalOrienZCurr = globalOrienZPrev + orienZ;
-      std::cout << "globalX: " << globalPosXCurr << " globalY: " << globalPosYCurr << " globalTheta: " << globalOrienZCurr << std::endl;
       
       geometry_msgs::PoseStamped new_pose;
       new_pose.header.frame_id = "/map";
@@ -499,11 +494,25 @@ class ScanMatching {
       new_pose.pose.orientation = tf2::toMsg(quat);
 
       this->pose_pub_.publish(new_pose);
-      // ---------- end my code -------------------------------------
 
-      //5.Also transform the previous frame laserscan points using the roto-translation transform obtained and visualize it.
-      //Ideally, this should coincide with your actual current laserscan message.
-
+      // 5. Also transform the previous frame laserscan points using the roto-translation transform obtained and visualize it.
+      // Ideally, this should coincide with your actual current laserscan message.
+      
+      std::vector<double> prevScanXInNewFrame;
+      std::vector<double> prevScanYInNewFrame;
+      visualization_msgs::Marker prev_scan_points;
+      prev_scan_points.header.frame_id = "/laser";
+      prev_scan_points.type = visualization_msgs::Marker::POINTS;
+      prev_scan_points.color.a = 1.0;
+      prev_scan_points.scale.x = 0.1;
+      geometry_msgs::Point point;
+      for(int i{0}; i < scanDataSize; i++)
+      {
+        point.x = scanXPrev[i]*cos(orienZ) + scanYPrev[i]*sin(orienZ) - posX*cos(orienZ) + posY*sin(orienZ);
+        point.y = -scanXPrev[i]*sin(orienZ) + scanYPrev[i]*cos(orienZ) + posX*sin(orienZ) - posY*cos(orienZ);
+        prev_scan_points.points.push_back(point);
+      }
+      this->fake_scan_pub_.publish(prev_scan_points);
     
     }
     ~ScanMatching() {}
