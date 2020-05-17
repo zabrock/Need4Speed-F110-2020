@@ -68,6 +68,7 @@ def callback(msg):
         distances.append(dist((x,y),(point[0],point[1])))
     min_idx = distances.index(min(distances))
     closest_point = path_points[min_idx]
+    # Then find the next point in the path that is >= the lookahead distance
     goal_idx = []
     for i in range(min_idx,len(distances)):
         if distances[i] >= LOOKAHEAD_DISTANCE:
@@ -83,24 +84,57 @@ def callback(msg):
 
     goal_point = path_points[goal_idx]
 
-    print('Current point: {} {}'.format(x,y))
-    print('Closest point: {} {}'.format(closest_point[0], closest_point[1]))
-    print('Goal point: {} {}'.format(goal_point[0], goal_point[1]))
+    #print('Current point: {} {}'.format(x,y))
+    #print('Closest point: {} {}'.format(closest_point[0], closest_point[1]))
+    #print('Goal point: {} {}'.format(goal_point[0], goal_point[1]))
 
 
     # 3. Transform the goal point to vehicle coordinates. 
-    
+
+    # The following calculations come from the knowledge that p0 = T01p1, where p0
+    # is a point in frame {0}, p1 is the same point in frame {1}, and T01 is the
+    # transformation matrix that describes frame {1} in frame {0}. If T01 is written as:
+    #     T01 = [R01 p01
+    #             0   1]
+    # then the inverse of the transformation matrix is as follows:
+    #     inv(T01) = [R01' -R01'p01
+    #                  0       1]
+    # where ' denotes the matrix transpose. If frame {1} is taken as the vehicle's
+    # coordinate frame and {0} is the map frame in which the path is defined, we
+    # can find the goal point in vehicle coordinates by p1 = inv(T01)p0.
+
+    # Goal in world coordinates
+    x_g_w = goal_point[0]
+    y_g_w = goal_point[1]
+
+    # Goal in car coordinates
+    x_g = x_g_w*np.cos(yaw) + y_g_w*np.sin(yaw) - (x*np.cos(yaw) + y*np.sin(yaw))
+    y_g = -x_g_w*np.sin(yaw) + y_g_w*np.cos(yaw) + (x*np.sin(yaw) - y*np.cos(yaw))
+
+    print('Goal in car coordinates: {} {}'.format(x_g, y_g))
     
 
     # 4. Calculate the curvature = 1/r = 2x/l^2
     # The curvature is transformed into steering wheel angle and published to the 'drive_param' topic.
 
+    # Our car's coordinate frame is rotated 90 degrees from that in the paper,
+    # so curvature is actually 2y/l^2.
+    # "l" is given by the distance to the goal point
+    kappa = 2*abs(y_g)/(distances[goal_idx]**2)
     
-    #angle = np.clip(angle, -0.4189, 0.4189) # 0.4189 radians = 24 degrees because car can only turn 24 degrees max
+    wheelbase = rospy.get_param('/racecar_simulator/wheelbase',0.3302)
+    # Following comes from geometry
+    angle = np.arcsin(kappa*wheelbase)
+    # Change angle's sign depending on whether y_g is to the left or right of the vehicle
+    if y_g < 0:
+        angle = -angle
+
+    angle = np.clip(angle, -0.4189, 0.4189) # 0.4189 radians = 24 degrees because car can only turn 24 degrees max
+    print('Angle: {}'.format(angle))
 
     msg = drive_param()
-    #msg.velocity = VELOCITY
-    #msg.angle = angle
+    msg.velocity = VELOCITY
+    msg.angle = angle
     pub.publish(msg)
     
 if __name__ == '__main__':
