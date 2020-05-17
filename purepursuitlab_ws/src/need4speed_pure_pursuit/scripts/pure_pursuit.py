@@ -3,6 +3,7 @@
 import rospy
 from race.msg import drive_param
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Float64
 import math
 import numpy as np
 from numpy import linalg as LA
@@ -34,6 +35,9 @@ path_points = [(float(point[0]), float(point[1]), float(point[2])) for point in 
         
 # Publisher for 'drive_parameters' (speed and steering angle)
 pub = rospy.Publisher('drive_parameters', drive_param, queue_size=1)
+
+# Publisher for lookahead distance
+lookahead_pub = rospy.Publisher('lookahead_distance', Float64, queue_size=1)
 
 
 #############
@@ -136,6 +140,9 @@ def callback(msg):
     msg.velocity = VELOCITY
     msg.angle = angle
     pub.publish(msg)
+
+    # Also publish the lookahead distance
+    lookahead_pub.publish(Float64(LOOKAHEAD_DISTANCE))
     
 if __name__ == '__main__':
     rospy.init_node('pure_pursuit')

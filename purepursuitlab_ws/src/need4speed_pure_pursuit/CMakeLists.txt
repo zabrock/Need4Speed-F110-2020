@@ -207,3 +207,6 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+add_executable(pure_pursuit_visualizer src/pure_pursuit_visualizer.cpp)
+target_link_libraries(pure_pursuit_visualizer ${catkin_LIBRARIES})
