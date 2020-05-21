@@ -10,15 +10,21 @@ import os
 import csv
 import pdb
 
-dirname = os.path.dirname(__file__)
-filename = os.path.join(dirname, '../waypoints/levine-waypoints.csv')
-with open(filename) as f:
-	path_points = [tuple(line) for line in csv.reader(f)]
+
 
 topic = 'visualization_marker_array'
 publisher = rospy.Publisher(topic, MarkerArray, queue_size="1")
 
 rospy.init_node('register')
+
+waypoint_file = rospy.get_param('/pure_pursuit_visualizer_node/waypoint_filename','levine-waypoints.csv')
+
+dirname = os.path.dirname(__file__)
+filename = os.path.join(dirname, '../waypoints/' + waypoint_file)
+with open(filename) as f:
+	path_points = [tuple(line) for line in csv.reader(f)]
+
+
 
 # Visualize every other marker to save on memory and speed
 while not rospy.is_shutdown():
