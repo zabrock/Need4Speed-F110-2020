@@ -118,7 +118,6 @@ def callback(msg):
     # so curvature is actually 2y/l^2.
     # "l" is given by the distance to the goal point
     kappa = 2*abs(y_g)/(distances[goal_idx]**2)
-    print(kappa)
 
     # Trim the velocity based on curvature
     velocity = MAX_VELOCITY + kappa*VEL_GAIN
