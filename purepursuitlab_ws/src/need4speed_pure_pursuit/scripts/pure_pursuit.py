@@ -18,20 +18,17 @@ import copy
 
 LOOKAHEAD_DISTANCE = 2.0 # meters
 VELOCITY = 1.0 # m/s
+MIN_VELOCITY = 0.5 # m/s
+MAX_VELOCITY = 2 # m/s
+MIN_LOOKAHEAD = 1.0 # meters
+VEL_GAIN = -2.0 # m/s
+LOOKAHEAD_GAIN = 1.0
 
 
 ###########
 # GLOBALS #
 ###########
-
-# Import waypoints.csv into a list (path_points)
-dirname = os.path.dirname(__file__)
-filename = os.path.join(dirname, '../waypoints/levine-waypoints.csv')
-with open(filename) as f:
-    path_points = [tuple(line) for line in csv.reader(f)]
-
-# Turn path_points into a list of floats to eliminate the need for casts in the code below.
-path_points = [(float(point[0]), float(point[1]), float(point[2])) for point in path_points]
+path_points = []
         
 # Publisher for 'drive_parameters' (speed and steering angle)
 pub = rospy.Publisher('drive_parameters', drive_param, queue_size=1)
@@ -51,6 +48,8 @@ def dist(p1, p2):
 # Input data is PoseStamped message from topic /odom.
 # Runs pure pursuit and publishes velocity and steering angle.
 def callback(msg):
+    global LOOKAHEAD_DISTANCE
+    global VELOCITY
 
     # Note: These following numbered steps below are taken from R. Craig Coulter's paper on pure pursuit.
 
@@ -88,10 +87,6 @@ def callback(msg):
 
     goal_point = path_points[goal_idx]
 
-    #print('Current point: {} {}'.format(x,y))
-    #print('Closest point: {} {}'.format(closest_point[0], closest_point[1]))
-    #print('Goal point: {} {}'.format(goal_point[0], goal_point[1]))
-
 
     # 3. Transform the goal point to vehicle coordinates. 
 
@@ -114,8 +109,6 @@ def callback(msg):
     # Goal in car coordinates
     x_g = x_g_w*np.cos(yaw) + y_g_w*np.sin(yaw) - (x*np.cos(yaw) + y*np.sin(yaw))
     y_g = -x_g_w*np.sin(yaw) + y_g_w*np.cos(yaw) + (x*np.sin(yaw) - y*np.cos(yaw))
-
-    print('Goal in car coordinates: {} {}'.format(x_g, y_g))
     
 
     # 4. Calculate the curvature = 1/r = 2x/l^2
@@ -125,6 +118,16 @@ def callback(msg):
     # so curvature is actually 2y/l^2.
     # "l" is given by the distance to the goal point
     kappa = 2*abs(y_g)/(distances[goal_idx]**2)
+
+    # Trim the velocity based on curvature
+    velocity = MAX_VELOCITY + kappa*VEL_GAIN
+    if velocity < MIN_VELOCITY:
+        velocity = MIN_VELOCITY
+
+    # Trim the lookahead distance based on velocity
+    LOOKAHEAD_DISTANCE = velocity*LOOKAHEAD_GAIN
+    if LOOKAHEAD_DISTANCE < MIN_LOOKAHEAD:
+        LOOKAHEAD_DISTANCE = MIN_LOOKAHEAD
     
     wheelbase = rospy.get_param('/racecar_simulator/wheelbase',0.3302)
     # Following comes from geometry
@@ -134,10 +137,9 @@ def callback(msg):
         angle = -angle
 
     angle = np.clip(angle, -0.4189, 0.4189) # 0.4189 radians = 24 degrees because car can only turn 24 degrees max
-    print('Angle: {}'.format(angle))
 
     msg = drive_param()
-    msg.velocity = VELOCITY
+    msg.velocity = velocity
     msg.angle = angle
     pub.publish(msg)
 
@@ -145,7 +147,19 @@ def callback(msg):
     lookahead_pub.publish(Float64(LOOKAHEAD_DISTANCE))
     
 if __name__ == '__main__':
+    global path_points
     rospy.init_node('pure_pursuit')
     rospy.Subscriber('/odom', Odometry, callback, queue_size=1)
+
+    # Import waypoints.csv into a list (path_points)
+    dirname = os.path.dirname(__file__)
+    waypoint_file = rospy.get_param('/pure_pursuit_node/waypoint_filename','levine-waypoints.csv')
+    filename = os.path.join(dirname, '../waypoints/' + waypoint_file)
+    with open(filename) as f:
+        path_points = [tuple(line) for line in csv.reader(f)]
+    
+    # Turn path_points into a list of floats to eliminate the need for casts in the code below.
+    path_points = [(float(point[0]), float(point[1]), float(point[2])) for point in path_points]
+
     rospy.spin()
 

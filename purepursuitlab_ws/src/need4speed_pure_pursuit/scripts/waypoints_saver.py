@@ -3,15 +3,16 @@ import rospy
 import numpy as np
 import atexit
 import tf
-from os.path import expanduser
+import os
 from time import gmtime, strftime
 from tf.transformations import euler_from_quaternion
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
 
 # Open a file to write waypoints to
-home = expanduser('~')
-file = open(strftime(home+'/waypoints-%Y-%m-%d-%H-%M-%S',gmtime())+'.csv', 'w')
+dirname = os.path.dirname(__file__)
+filename = os.path.join(dirname, strftime('../waypoints/waypoints-%Y-%m-%d-%H-%M-%S.csv',gmtime()))
+file = open(filename, 'w')
 
 # Publisher for path messages
 path_pub = rospy.Publisher('/saved_path', Path, queue_size=1)
