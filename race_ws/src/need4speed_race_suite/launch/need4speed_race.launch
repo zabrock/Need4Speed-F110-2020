@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<launch>
+
+  	<!-- Listen to messages from joysicks -->
+  <node pkg="joy" name="joy_node" type="joy_node"/>
+
+  <!-- Launch a map from the maps folder-->
+  <arg name="map" default="$(find race_monitor)/maps/race_track_f110.yaml"/>
+  <node pkg="map_server" name="map_server" type="map_server" args="$(arg map)"/>
+
+  <!-- Launch the racecar model -->
+  <include file="$(find racecar_simulator)/launch/racecar_model.launch"/>
+
+  <!-- Launch the particle filter -->
+  <include file="$(find particle_filter)/launch/localize.launch"/>
+
+  <!-- Begin the simulator with the parameters from params.yaml -->
+  <node pkg="racecar_simulator" name="racecar_simulator" type="simulator" output="screen">
+    <rosparam command="load" file="$(find racecar_simulator)/config/params.yaml"/>
+  </node>
+
+  <!-- Launch the mux node with the parameters from params.yaml -->
+  <node pkg="racecar_simulator" name="mux_controller" type="mux" output="screen">
+    <rosparam command="load" file="$(find racecar_simulator)/config/params.yaml"/>
+  </node>
+
+  <!-- Launch the behavior controller node with the parameters from params.yaml -->
+  <node pkg="racecar_simulator" name="behavior_controller" type="behavior_controller" output="screen">
+    <rosparam command="load" file="$(find racecar_simulator)/config/params.yaml"/>
+  </node>
+
+  <!-- Launch the Random Walker Node -->
+  <node pkg="racecar_simulator" name="random_walker" type="random_walk" output="screen">
+    <rosparam command="load" file="$(find racecar_simulator)/config/params.yaml"/>
+  </node>
+
+  <!-- Launch the Keyboard Node -->
+  <node pkg="racecar_simulator" name="keyboard" type="keyboard" output="screen">
+    <rosparam command="load" file="$(find racecar_simulator)/config/params.yaml"/>
+  </node>
+  
+  <node pkg="need4speed_pure_pursuit" name="pure_pursuit_node" type="pure_pursuit.py" output="screen">
+     <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
+  </node>
+  <node pkg="need4speed_pure_pursuit" name="sim_connector_node" type="sim_connector.py" output="screen"/>
+  <node pkg="need4speed_pure_pursuit" name="visualize_markers_node" type="visualize_markers.py" output="screen"/>
+  <node pkg="need4speed_pure_pursuit" name="pure_pursuit_visualizer_node" type="pure_pursuit_visualizer" output="screen">
+    <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
+  </node>
+  <node pkg="need4speed_pure_pursuit" name="waypoints_saver_node" type="waypoints_saver.py" output="screen">
+    <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
+  </node>
+
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find need4speed_pure_pursuit)/rviz_cfg/pure_pursuit_sim.rviz" output="screen"/>
+
+</launch>
