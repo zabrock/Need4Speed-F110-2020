@@ -1,0 +1,3 @@
+maxAbsError: 0.278071
+totalAbsError: 72.938169
+numOfData: 1371
