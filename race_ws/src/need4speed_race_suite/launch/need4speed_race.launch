@@ -42,6 +42,9 @@
   <node pkg="need4speed_pure_pursuit" name="pure_pursuit_node" type="pure_pursuit.py" output="screen">
      <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
   </node>
+  <node pkg="need4speed_pure_pursuit" name="path_reader" type="read_path_from_file.py" output="screen">
+     <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
+  </node>
   <!--
   <node pkg="need4speed_pure_pursuit" name="stanley_node" type="stanley_control.py" output="screen">
      <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
@@ -71,6 +74,6 @@
 
   <node pkg="need4speed_gap_finding" name="gap_visualizer" type="visualize_gap_finding.py" output="screen" />
 
-  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find need4speed_pure_pursuit)/rviz_cfg/pure_pursuit_sim.rviz" output="screen"/>
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find need4speed_race_suite)/launch/race_visualization.rviz" output="screen"/>
 
 </launch>

@@ -2,7 +2,7 @@
 
 import rospy
 from race.msg import drive_param
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Path
 from std_msgs.msg import Float64
 import math
 import numpy as np
@@ -52,6 +52,10 @@ def dist(p1, p2):
 def callback(msg):
     global LOOKAHEAD_DISTANCE
     global VELOCITY
+
+    # Wait until we have a path to follow
+    if not path_points:
+      return
 
     # Note: These following numbered steps below are taken from R. Craig Coulter's paper on pure pursuit.
 
@@ -153,22 +157,18 @@ def callback(msg):
 
     # Also publish the lookahead distance
     lookahead_pub.publish(Float64(LOOKAHEAD_DISTANCE))
+
+def path_callback(msg):
+    global path_points
+    if (not path_points) or rospy.get_param('/pure_pursuit_node/dynamic_path',False):
+        path_points = [(float(pose.pose.position.x), float(pose.pose.position.y)) for pose in msg.poses]
     
 if __name__ == '__main__':
     global path_points
 
-    # Import waypoints.csv into a list (path_points)
-    dirname = os.path.dirname(__file__)
-    waypoint_file = rospy.get_param('/pure_pursuit_node/waypoint_filename','levine-waypoints.csv')
-    filename = os.path.join(dirname, '../waypoints/' + waypoint_file)
-    with open(filename) as f:
-        path_points = [tuple(line) for line in csv.reader(f)]
-    
-    # Turn path_points into a list of floats to eliminate the need for casts in the code below.
-    path_points = [(float(point[0]), float(point[1]), float(point[2])) for point in path_points]
-
     rospy.init_node('pure_pursuit')
     rospy.Subscriber('/pf/pose/odom', Odometry, callback, queue_size=1)
+    rospy.Subscriber('/desired_path', Path, path_callback, queue_size=1)
 
     rospy.spin()
 

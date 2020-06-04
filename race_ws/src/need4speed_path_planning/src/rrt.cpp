@@ -15,18 +15,23 @@
 #include <limits>
 #include <cmath>
 
-int ITER_LIMIT = 500;		// Limit on number of iterations for RRT solver
+// Constant parameters
+int ITER_LIMIT = 500;		    // Limit on number of iterations for RRT solver
 double GOAL_RADIUS = 0.05; 	// Radius around goal acceptable for completion
-double STEER_DELTA = 0.1;
-double GOAL_SAMPLE_RATE = 0.1;
-double INFLATION_DISTANCE = 0.5;
+double STEER_DELTA = 0.1;   // Maximum distance for steering toward random nodes
+double GOAL_SAMPLE_RATE = 0.1;  // Rate at which goal is sampled in random node generation
+double INFLATION_DISTANCE = 0.5;// Distance by which obstacles will be inflated
+double INFLATION_RATE = 0.9;    // Percentage of neighboring obstacle value that will be 
+                                // placed in the inflating cell
 
+// Returns the Euclidean distance between two points.
 double euclidean_distance(double x1, double y1, double x2, double y2)
 {
   double dist_sqd = std::pow(x1-x2,2) + std::pow(y1-y2,2);
   return std::pow(dist_sqd,0.5);
 }
 
+// Node class for building RRT's.
 class Node {
   private:
     double X;
@@ -74,7 +79,7 @@ class RRTree {
     std::vector<Node*> nodeList;
     bool mapReceived;
 
-    // Variables for random node generation
+    // For random node generation
     std::default_random_engine generator;
     
     double x_min;
@@ -113,7 +118,8 @@ class RRTree {
 
     void resetTree()
     {
-      std::cout << this->nodeList.size() << std::endl;
+      // Clear out the tree and goal node
+      std::cout << "Tree size: " << this->nodeList.size() << std::endl;
       for(int i{0}; i < this->nodeList.size(); i++)
       {
         delete this->nodeList[i];
@@ -129,6 +135,7 @@ class RRTree {
     {
       if(this->mapData.size() == 0)
       {
+        // Wait until the map has been read in
         std::cout << "Skipping" << std::endl;
         return;
       }
@@ -153,8 +160,12 @@ class RRTree {
         {
           this->getPseudoRandomNode(random_node, x_root, y_root, x_goal, y_goal);
         }
+        
+        // Now steer toward the random node from the closest node
         int nearest_idx = this->getNearestNodeIndex(random_node);
         this->steer(random_node, nearest_idx);
+        
+        // Check if new node and path to it are obstacle free
         if(this->obstacleFree(random_node))
         {
           // Add to the tree
@@ -168,9 +179,8 @@ class RRTree {
         }
         else
         {
-          //std::cout << "Node invalid, deleting" << std::endl;
+          // If not obstacle free, delete the new node
           delete random_node;
-          //std::cout << "Invalid node deleted" << std::endl;
         }
       }
       // Once we're out of this loop, if we've found a path to the goal, return that path
@@ -199,7 +209,6 @@ class RRTree {
         temp_node = temp_node->getParent();
       }
       this->path_pub.publish(path);
-      std::cout << "Path published" << std::endl;
       this->resetTree();
       
     }
@@ -330,9 +339,12 @@ class RRTree {
     
     void getCostMap()
     {
+      // This function works by "inflating" the obstacles to add new values to the
+      // costmap in the free space.
       std::vector<int8_t>* cost_map = new std::vector<int8_t>{this->mapData};
       std::vector<int8_t>* temp_map = new std::vector<int8_t>{this->mapData};
       
+      // Find the indices which are free space so we can ignore everything else
       std::vector<int> free_indices;
       for(int i{0}; i < this->mapData.size(); i++)
       {
@@ -340,11 +352,13 @@ class RRTree {
           free_indices.push_back(i);
       }
       
+      // Keep inflating until we've reached the set inflation distance
       for(int i{0}; i < (int)std::round(INFLATION_DISTANCE/this->mapInfo.resolution); i++)
       {
         std::vector<int> temp_indices;
         for(int j{0}; j < free_indices.size(); j++)
         {
+          // Check all neighboring cells for an obstacle
           int left = free_indices[j] - 1;
           int right = free_indices[j] + 1;
           int top = free_indices[j] - this->mapInfo.width;
@@ -352,28 +366,26 @@ class RRTree {
           if(left > 0 && temp_map[0][left] != 0)
           {
             cost_map[0][free_indices[j]] = 0.9*temp_map[0][left];
-            //std::cout << (int) temp_map[0][left] << " " << (int) cost_map[0][free_indices[j]] << std::endl;
           }
           else if(right < temp_map[0].size() && temp_map[0][right] != 0)
           {
             cost_map[0][free_indices[j]] = 0.9*temp_map[0][right];
-            //std::cout << "right" << std::endl;
           }
           else if(top > 0 && temp_map[0][top] != 0)
           {
             cost_map[0][free_indices[j]] = 0.9*temp_map[0][top];
-            //std::cout << "top" << std::endl;
           }
           else if(bottom < temp_map[0].size() && temp_map[0][bottom] != 0)
           {
             cost_map[0][free_indices[j]] = 0.9*temp_map[0][bottom];
-            //std::cout << "bottom" << std::endl;
           }
           else
           {
             temp_indices.push_back(free_indices[j]);
           }
         }
+        // Moving new cost map to temp map for next cycle
+        // and getting new set of free space indices
         temp_map[0] = cost_map[0];
         free_indices = temp_indices;
       }
@@ -389,6 +401,7 @@ class RRTree {
 
     int getMapIndex(double x, double y)
     {
+      // Find and return the row-major order map index for this position in the map
       double delta_x = x - this->mapInfo.origin.position.x;
       double delta_y = y - this->mapInfo.origin.position.y;
       int x_grid = (int)std::round(delta_x/this->mapInfo.resolution);
