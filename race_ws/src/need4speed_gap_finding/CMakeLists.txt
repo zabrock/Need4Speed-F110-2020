@@ -1,19 +1,19 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(need4speed_pure_pursuit)
+project(need4speed_gap_finding)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  ackermann_msgs
+  roscpp
+  rospy
   geometry_msgs
-  nav_msgs
+  sensor_msgs
   std_msgs
-  tf
-  visualization_msgs
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -50,11 +50,10 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  gaps.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -71,10 +70,11 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   ackermann_msgs#   geometry_msgs#   nav_msgs#   std_msgs#   visualization_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  geometry_msgs
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -107,8 +107,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES need4speed_pure_pursuit
-#  CATKIN_DEPENDS ackermann_msgs geometry_msgs nav_msgs std_msgs tf visualization_msgs
+#  LIBRARIES brock_gap_finding
+#  CATKIN_DEPENDS geometry_msgs sensor_msgs std_msgs
 #  DEPENDS system_lib
 )
 
@@ -125,7 +125,7 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/need4speed_pure_pursuit.cpp
+#   src/${PROJECT_NAME}/brock_gap_finding.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -136,7 +136,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/need4speed_pure_pursuit_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/brock_gap_finding_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -195,21 +195,19 @@ include_directories(
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
+add_executable(find_gap src/find_gap.cpp)
+target_link_libraries(find_gap ${catkin_LIBRARIES})
+add_dependencies(find_gap need4speed_gap_finding_generate_messages_cpp)
+
 #############
 ## Testing ##
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_need4speed_pure_pursuit.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_brock_gap_finding.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-
-add_executable(pure_pursuit_visualizer src/pure_pursuit_visualizer.cpp)
-target_link_libraries(pure_pursuit_visualizer ${catkin_LIBRARIES})
-
-add_executable(tracking_error_visualizer src/tracking_error_visualizer.cpp)
-target_link_libraries(tracking_error_visualizer ${catkin_LIBRARIES})

@@ -4,14 +4,28 @@
 #include "nav_msgs/Odometry.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include "nav_msgs/MapMetaData.h"
+#include "nav_msgs/Path.h"
+#include "geometry_msgs/Vector3.h"
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf/transform_broadcaster.h>
 #include <utility>
 #include <vector>
 #include <random>
 #include <limits>
+#include <cmath>
 
 int ITER_LIMIT = 500;		// Limit on number of iterations for RRT solver
-double GOAL_RADIUS = 0.1; 	// Radius around goal acceptable for completion
+double GOAL_RADIUS = 0.05; 	// Radius around goal acceptable for completion
 double STEER_DELTA = 0.1;
+double GOAL_SAMPLE_RATE = 0.1;
+double INFLATION_DISTANCE = 0.5;
+
+double euclidean_distance(double x1, double y1, double x2, double y2)
+{
+  double dist_sqd = std::pow(x1-x2,2) + std::pow(y1-y2,2);
+  return std::pow(dist_sqd,0.5);
+}
 
 class Node {
   private:
@@ -33,6 +47,13 @@ class Node {
       this->Y = y;
       this->parent = parent;
     }
+    
+    Node(Node* copy_node)
+    {
+      this->X = copy_node->getX();
+      this->Y = copy_node->getY();
+      this->parent = copy_node->getParent();
+    }
 
     void setX(double x) {this->X = x;}
     void setY(double y) {this->Y = y;}
@@ -40,6 +61,7 @@ class Node {
 
     double getX() {return this->X;}
     double getY() {return this->Y;}
+    Node* getParent() {return this->parent;}
 };
 
 class RRTree {
@@ -48,7 +70,7 @@ class RRTree {
     Node* goal;
     double goalSampleRate;
     nav_msgs::MapMetaData mapInfo;
-    std::vector<int8_t>* mapData;
+    std::vector<int8_t> mapData;
     std::vector<Node*> nodeList;
     bool mapReceived;
 
@@ -62,6 +84,8 @@ class RRTree {
     
     ros::NodeHandle nh;
     ros::Subscriber map_sub;
+    ros::Publisher path_pub;
+    ros::Publisher map_pub;
 
   public:
     RRTree() {};
@@ -73,71 +97,150 @@ class RRTree {
       this->root = nullptr;
       this->goal = nullptr;
       this->goalSampleRate = goal_sample_rate;
-      this->mapData = nullptr;
+      this->x_min = 0;
+      this->x_max = 0;
+      this->y_min = 0;
+      this->y_max = 0;
+      
+      this->path_pub = this->nh.advertise<nav_msgs::Path>("rrt_path", 10);
+      this->map_pub = this->nh.advertise<nav_msgs::OccupancyGrid>("fake_map", 10);
     }
     
     virtual ~RRTree()
     {
       this->resetTree();
-      delete this->mapData;
     }
 
     void resetTree()
     {
+      std::cout << this->nodeList.size() << std::endl;
       for(int i{0}; i < this->nodeList.size(); i++)
-        {
-          delete this->nodeList[i];
-        }
+      {
+        delete this->nodeList[i];
+      }
       this->nodeList.clear();
       if (this->goal != nullptr)
         delete this->goal;
-      if (this->root != nullptr)
-        delete this->root;
       this->root = nullptr;
       this->goal = nullptr;
     }
 
     void BuildRRT(double x_root, double y_root, double x_goal, double y_goal)
     {
-      if(this->mapData == nullptr)
+      if(this->mapData.size() == 0)
       {
         std::cout << "Skipping" << std::endl;
         return;
       }
-
-      std::cout << "x_root: " << x_root << " y_root: " << y_root << std::endl;
-      std::cout << "x_goal: " << x_goal << " y_goal: " << y_goal << std::endl;
-      std::pair<int, int> map_coords = getMapIndex(x_root, y_root);
-      std::cout << "Map coordinates of root: " << map_coords.first << " " << map_coords.second << std::endl;
-      map_coords = getMapIndex(x_goal, y_goal);
-      std::cout << "Map coordinates of goal: " << map_coords.first << " " << map_coords.second << std::endl;
-
       // Create root and goal nodes
       this->root = new Node(x_root, y_root, nullptr);
       this->goal = new Node(x_goal, y_goal, nullptr);
       // Add root to node list
       this->nodeList.push_back(this->root);
-      
-      for(i{0}; i < ITER_LIMIT; i++)
+      bool foundPath = false;
+      for(int i{0}; i < ITER_LIMIT; i++)
       {
-        Node* random_node = this->getRandomNode();
-        int nearest_idx = this->getNearestNodeIndex(random_node);
-        Node* new_node = this->steer(random_node, nearest_idx);
-        if(this->obstacleFree(new_node))
+        // Start by finding a random node in the space or sampling the goal
+        std::uniform_real_distribution<double> distribution;
+        double rand = distribution(this->generator);
+        Node* random_node = new Node();
+        if(rand < this->goalSampleRate)
         {
+          random_node->setX(this->goal->getX());
+          random_node->setY(this->goal->getY());
         }
         else
-          delete new_node;
+        {
+          this->getPseudoRandomNode(random_node, x_root, y_root, x_goal, y_goal);
+        }
+        int nearest_idx = this->getNearestNodeIndex(random_node);
+        this->steer(random_node, nearest_idx);
+        if(this->obstacleFree(random_node))
+        {
+          // Add to the tree
+          this->nodeList.push_back(random_node);
+          // Check if the new node gets us close enough to the goal
+          if(this->closeToGoal(random_node))
+          {
+            foundPath = true;
+            break;
+          }
+        }
+        else
+        {
+          //std::cout << "Node invalid, deleting" << std::endl;
+          delete random_node;
+          //std::cout << "Invalid node deleted" << std::endl;
+        }
       }
+      // Once we're out of this loop, if we've found a path to the goal, return that path
+      Node* temp_node;
+      if(foundPath)
+      {
+        std::cout << "Path found" << std::endl;
+        // Closest node to goal must be the last one we added
+        temp_node = this->nodeList.back();
+      }
+      else
+      {
+        // If we didn't find a path to the goal, return the path that gets us to the 
+        // node closest to the goal
+        temp_node = this->nodeList[getNearestNodeIndex(this->goal)];
+      }
+      nav_msgs::Path path;
+      path.header.frame_id = "/map";
+      geometry_msgs::PoseStamped pose;
+      while(temp_node != nullptr)
+      {
+        pose = geometry_msgs::PoseStamped();
+        pose.pose.position.x = temp_node->getX();
+        pose.pose.position.y = temp_node->getY();
+        path.poses.push_back(pose);
+        temp_node = temp_node->getParent();
+      }
+      this->path_pub.publish(path);
+      std::cout << "Path published" << std::endl;
+      this->resetTree();
+      
+    }
+    
+    bool closeToGoal(Node* new_node)
+    {
+      // Get distance from the new_node to the goal node and check if it's within goal
+      // radius
+      double dist = euclidean_distance(new_node->getX(), new_node->getY(), this->goal->getX(), this->goal->getY());
+      if(dist < GOAL_RADIUS)
+        return true;
+      else
+        return false;
     }
 
-    Node* getRandomNode()
+    void getRandomNode(Node* rand)
     {
       std::uniform_real_distribution<double> distribution;
-      double x = this->x_min + distribution(this->generator)*(this->x_max-this->x_min);
-      double y = this->y_min + distribution(this->generator)*(this->y_max-this->y_min);
-      Node* rand = new Node(x,y,nullptr);
-      return rand;
+      rand->setX(this->x_min + distribution(this->generator)*(this->x_max-this->x_min));
+      rand->setY(this->y_min + distribution(this->generator)*(this->y_max-this->y_min));
+    }
+
+    void getPseudoRandomNode(Node* rand, double x_root, double y_root, double x_goal, double y_goal)
+    {
+      std::uniform_real_distribution<double> distribution;
+      // Find center between root and goal
+      double x_ctr = (x_root + x_goal)/2.0;
+      double y_ctr = (y_root + y_goal)/2.0;
+      // Take radius of search area to be the distance between the root and goal so 
+      // that we search a circle of diameter 2*distance centered between the root and goal
+      double search_radius = euclidean_distance(x_root, y_root, x_goal, y_goal);
+      // Now randomize heading and sub-radius within the search circle to find a new 
+      // point in the smaller search area
+      double heading = distribution(this->generator)*2*M_PI;
+      double radius = distribution(this->generator)*search_radius;
+      double x_new = x_ctr + radius*std::cos(heading);
+      double y_new = y_ctr + radius*std::sin(heading);
+      
+      rand->setX(x_new);
+      rand->setY(y_new);
+      
     }
 
     int getNearestNodeIndex(Node* rand)
@@ -160,40 +263,131 @@ class RRTree {
       return nearest_node_idx;
     }
     
-    Node* steer(Node* rand, int near_idx)
+    void steer(Node* rand, int near_idx)
     {
-      double dist_sqd = std::pow(rand->getX()-nodeList[near_idx]->getX(),2) + std::pow(rand->getY()-nodeList[near_idx]->getY(),2);
-      if(dist_sqd < std::pow(STEER_DELTA,2))
+      // Find distance between nearest and random node
+      double dist = euclidean_distance(rand->getX(), rand->getY(), nodeList[near_idx]->getX(), nodeList[near_idx]->getY());
+      // If already within steer limit, just set parent appropriately and return
+      // to be added to the tree
+      if(dist < STEER_DELTA)
       {
         rand->setParent(nodeList[near_idx]);
-        return rand;
+        return;
       }
 
-      double norm_x = (rand->getX()-nodeList[near_idx]->getX())/pow(dist_sqd,0.5);
-      double norm_y = (rand->getY()-nodeList[near_idx]->getY())/pow(dist_sqd,0.5);
+      // Otherwise, find normal vector from nearest to random node and 
+      // travel to steer limit along that normal vector to create new node
+      double norm_x = (rand->getX()-nodeList[near_idx]->getX())/dist;
+      double norm_y = (rand->getY()-nodeList[near_idx]->getY())/dist;
       double new_x = nodeList[near_idx]->getX() + STEER_DELTA*norm_x;
-      double new_y = nodeList[near_idx]->getX() + STEER_DELTA*norm_x;
-      delete rand;
-      Node* new_node = new Node(new_x, new_y, nodeList[near_idx]);
-      return new_node;
+      double new_y = nodeList[near_idx]->getY() + STEER_DELTA*norm_y;
+      
+      rand->setX(new_x);
+      rand->setY(new_y);
+      rand->setParent(nodeList[near_idx]);
+    }
+    
+    bool obstacleFree(Node* new_node)
+    {
+      double x_new = new_node->getX();
+      double y_new = new_node->getY();
+      
+      // Parent must have been collision free to be added to the graph, so check the
+      // new node to see if it's collision free
+      if(this->mapData[getMapIndex(x_new,y_new)] != 0)
+        return false;
+      
+      // Now check along the path between the parent and the new node to make sure the
+      // space between them is collision free. Because this is discrete, there's a chance
+      // that there could be an obstacle in the spaces we're not checking, but it should
+      // be pretty small.
+      double x_parent = new_node->getParent()->getX();
+      double y_parent = new_node->getParent()->getY();
+      double x_check = (x_new+x_parent)/2.0;
+      double y_check = (y_new+y_parent)/2.0;
+      if(this->mapData[getMapIndex(x_check,y_check)] != 0)
+        return false;
+      
+      // If it passed all these checks, assume path is obstacle free
+      return true;
     }
 
     void mapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg)
     {
       std::cout << "Saving map" << std::endl;
       this->mapInfo = msg->info;
-      this->mapData = new std::vector<int8_t>;
-      *(this->mapData) = msg->data;
-      std::cout << this->mapData << std::endl;
+      this->mapData = msg->data;
       std::cout << "Map saved" << std::endl;
 
       this->x_min = msg->info.origin.position.x;
       this->y_min = msg->info.origin.position.y;
       this->x_max = this->x_min + msg->info.width*msg->info.resolution;
       this->y_max = this->y_min + msg->info.height*msg->info.resolution;
+      std::cout << "x limits: " << this->x_min << " " << this->x_max << std::endl;
+      std::cout << "y limits: " << this->y_min << " " << this->y_max << std::endl;
+      this->getCostMap();
+    }
+    
+    void getCostMap()
+    {
+      std::vector<int8_t>* cost_map = new std::vector<int8_t>{this->mapData};
+      std::vector<int8_t>* temp_map = new std::vector<int8_t>{this->mapData};
+      
+      std::vector<int> free_indices;
+      for(int i{0}; i < this->mapData.size(); i++)
+      {
+        if(this->mapData[i] == 0)
+          free_indices.push_back(i);
+      }
+      
+      for(int i{0}; i < (int)std::round(INFLATION_DISTANCE/this->mapInfo.resolution); i++)
+      {
+        std::vector<int> temp_indices;
+        for(int j{0}; j < free_indices.size(); j++)
+        {
+          int left = free_indices[j] - 1;
+          int right = free_indices[j] + 1;
+          int top = free_indices[j] - this->mapInfo.width;
+          int bottom = free_indices[j] + this->mapInfo.width;
+          if(left > 0 && temp_map[0][left] != 0)
+          {
+            cost_map[0][free_indices[j]] = 0.9*temp_map[0][left];
+            //std::cout << (int) temp_map[0][left] << " " << (int) cost_map[0][free_indices[j]] << std::endl;
+          }
+          else if(right < temp_map[0].size() && temp_map[0][right] != 0)
+          {
+            cost_map[0][free_indices[j]] = 0.9*temp_map[0][right];
+            //std::cout << "right" << std::endl;
+          }
+          else if(top > 0 && temp_map[0][top] != 0)
+          {
+            cost_map[0][free_indices[j]] = 0.9*temp_map[0][top];
+            //std::cout << "top" << std::endl;
+          }
+          else if(bottom < temp_map[0].size() && temp_map[0][bottom] != 0)
+          {
+            cost_map[0][free_indices[j]] = 0.9*temp_map[0][bottom];
+            //std::cout << "bottom" << std::endl;
+          }
+          else
+          {
+            temp_indices.push_back(free_indices[j]);
+          }
+        }
+        temp_map[0] = cost_map[0];
+        free_indices = temp_indices;
+      }
+      this->mapData = cost_map[0];
+      std::cout << "Costmap modified" << std::endl;
+      nav_msgs::OccupancyGrid map;
+      map.info = this->mapInfo;
+      map.data = this->mapData;
+      map_pub.publish(map);
+      delete cost_map;
+      delete temp_map;
     }
 
-    std::pair<int, int> getMapIndex(double x, double y)
+    int getMapIndex(double x, double y)
     {
       double delta_x = x - this->mapInfo.origin.position.x;
       double delta_y = y - this->mapInfo.origin.position.y;
@@ -208,7 +402,7 @@ class RRTree {
       else if(y_grid >= this->mapInfo.height)
         y_grid = this->mapInfo.height - 1;
 
-      return std::make_pair(x_grid, y_grid);
+      return x_grid + y_grid*(this->mapInfo.width);
     }
 };
 
@@ -217,15 +411,25 @@ class RRTPlanner {
     RRTree* rrt_tree;
     double x_odom;
     double y_odom;
+    double x_goal;
+    double y_goal;
+    double yaw_odom;
 
     ros::NodeHandle nh;
     ros::Subscriber pose_sub;
+    ros::Subscriber gap_sub;
   public:
     RRTPlanner(ros::NodeHandle node_handle) :
       nh(node_handle),
-      pose_sub(nh.subscribe("/pf/pose/odom", 100, &RRTPlanner::odomCallback, this))
+      pose_sub(nh.subscribe("/pf/pose/odom", 1, &RRTPlanner::odomCallback, this)),
+      gap_sub(nh.subscribe("/gap_center", 1, &RRTPlanner::gapCallback, this))
     {
-      this->rrt_tree = new RRTree(node_handle, 0.1);
+      this->rrt_tree = new RRTree(node_handle, GOAL_SAMPLE_RATE);
+      this->x_odom = 0;
+      this->y_odom = 0;
+      this->x_goal = 0;
+      this->y_odom = 0;
+      this->yaw_odom = 0;
     }
 
     ~RRTPlanner()
@@ -233,29 +437,47 @@ class RRTPlanner {
       delete this->rrt_tree;
     }
 
-    void plan(double goal_x, double goal_y)
+    void plan()
     {
-      this->rrt_tree->BuildRRT(this->x_odom, this->y_odom, goal_x, goal_y);
+      this->rrt_tree->BuildRRT(this->x_odom, this->y_odom, this->x_goal, this->y_goal);
     }
 
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     {
       this->x_odom = msg->pose.pose.position.x;
       this->y_odom = msg->pose.pose.position.y;
+      double roll, pitch, yaw;      
+      tf::Quaternion qt(
+          msg->pose.pose.orientation.x,
+          msg->pose.pose.orientation.y,
+          msg->pose.pose.orientation.z,
+          msg->pose.pose.orientation.w);
+      tf::Matrix3x3 rpyMat(qt);
+      rpyMat.getRPY(roll, pitch, yaw);
+      this->yaw_odom = yaw;
     }
 
-    
+    void gapCallback(const geometry_msgs::Vector3::ConstPtr& msg)
+    {
+      // Gap is relative to the car so we need to transform it to the world frame
+      // for planning
+      this->x_goal = this->x_odom + std::cos(this->yaw_odom)*msg->x - std::sin(this->yaw_odom)*msg->y;
+      this->y_goal = this->y_odom + std::sin(this->yaw_odom)*msg->x + std::cos(this->yaw_odom)*msg->y;
+    }
 };
+
+
 
 int main( int argc, char** argv )
 {
   ros::init(argc, argv, "rrt_planner");
   ros::NodeHandle nh;
+  //RRTPlanner* rrt_planner = new RRTPlanner(nh);
   RRTPlanner rrt_planner(nh);
   ros::Rate rate(10);
   while(ros::ok())
   {
-    rrt_planner.plan(10, 10);
+    rrt_planner.plan();
     ros::spinOnce();
     rate.sleep();
   }

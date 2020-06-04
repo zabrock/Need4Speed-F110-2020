@@ -42,6 +42,12 @@
   <node pkg="need4speed_pure_pursuit" name="pure_pursuit_node" type="pure_pursuit.py" output="screen">
      <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
   </node>
+  <!--
+  <node pkg="need4speed_pure_pursuit" name="stanley_node" type="stanley_control.py" output="screen">
+     <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
+  </node>
+  -->
+
   <node pkg="need4speed_pure_pursuit" name="sim_connector_node" type="sim_connector.py" output="screen"/>
   <node pkg="need4speed_pure_pursuit" name="visualize_markers_node" type="visualize_markers.py" output="screen"/>
   <node pkg="need4speed_pure_pursuit" name="pure_pursuit_visualizer_node" type="pure_pursuit_visualizer" output="screen">
@@ -50,6 +56,20 @@
   <node pkg="need4speed_pure_pursuit" name="waypoints_saver_node" type="waypoints_saver.py" output="screen">
     <rosparam command="load" file="$(find need4speed_pure_pursuit)/config/params.yaml"/>
   </node>
+
+  <node pkg="need4speed_race_suite" name="car_restarter_node" type="car_restarter.py" output="screen">
+  </node>
+
+  <node pkg="need4speed_pure_pursuit" name="tracking_error_viz_node" type="tracking_error_visualizer" output="screen">
+  </node>
+  <node pkg="need4speed_pure_pursuit" name="tracking_error_node" type="error_tracking.py" output="screen">
+  </node>
+
+  <node pkg="need4speed_gap_finding" name="gap_finding_node" type="find_gap" output="screen">
+    <rosparam command="load" file="$(find need4speed_gap_finding)/config/gap_finding_params.yaml"/>
+  </node>
+
+  <node pkg="need4speed_gap_finding" name="gap_visualizer" type="visualize_gap_finding.py" output="screen" />
 
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find need4speed_pure_pursuit)/rviz_cfg/pure_pursuit_sim.rviz" output="screen"/>
 
