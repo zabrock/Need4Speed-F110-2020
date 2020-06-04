@@ -77,6 +77,7 @@ void gapFinder::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
   gap_msg.header = h;
   this->gaps_pub.publish(gap_msg);
 
+  /*
   // Find the largest gap and publish it
   double max_width{0.0};
   geometry_msgs::Vector3 largest_gap_loc;
@@ -89,6 +90,21 @@ void gapFinder::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     }
   }
   this->largest_gap_pub.publish(largest_gap_loc);
+  */
+  // Find the furthest gap and publish it
+  double max_dist_sqd{0.0};
+  geometry_msgs::Vector3 furthest_gap_loc;
+  for(size_t i{0}; i < gap_msg.gap_centers.size(); i++)
+  {
+    double dist_sqd = std::pow(gap_msg.gap_centers[i].x,2) + std::pow(gap_msg.gap_centers[i].y,2);
+    if(dist_sqd > max_dist_sqd)
+    {
+      furthest_gap_loc = gap_msg.gap_centers[i];
+      max_dist_sqd = dist_sqd;
+    }
+  }
+  this->largest_gap_pub.publish(furthest_gap_loc);
+  
 }
 
 std::vector<double> gapFinder::preprocess_lidar_scan(const sensor_msgs::LaserScan::ConstPtr& msg)

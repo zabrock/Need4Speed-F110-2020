@@ -17,9 +17,9 @@ import copy
 #############
 
 LOOKAHEAD_DISTANCE = 2 # meters
-VELOCITY = 5 # m/s
+VELOCITY = 3 # m/s
 MIN_VELOCITY = 3 # m/s
-MAX_VELOCITY = 8 # m/s
+MAX_VELOCITY = 5 # m/s
 MIN_LOOKAHEAD = 1 # meters
 MAX_LOOKAHEAD = 3 # meters
 VEL_GAIN = -15.0 # m/s
@@ -77,6 +77,7 @@ def callback(msg):
         distances.append(dist((x,y),(point[0],point[1])))
     min_idx = distances.index(min(distances))
     closest_point = path_points[min_idx]
+    
     # Then find the next point in the path that is >= the lookahead distance
     goal_idx = []
     for i in range(min_idx,len(distances)):
@@ -89,8 +90,16 @@ def callback(msg):
                 goal_idx = copy.deepcopy(i)
                 break
     if goal_idx != 0 and not goal_idx:
-        print('Unexpected goal index finding')
+        # Default to the end of the path
+        goal_idx = len(distances)-1
 
+    if goal_idx < 0:
+        # Default to driving straight in hopes that things will work out later
+        msg = drive_param()
+        msg.velocity = MIN_VELOCITY
+        msg.angle = 0.0
+        pub.publish(msg)
+        return
     goal_point = path_points[goal_idx]
 
 
@@ -115,7 +124,6 @@ def callback(msg):
     # Goal in car coordinates
     x_g = x_g_w*np.cos(yaw) + y_g_w*np.sin(yaw) - (x*np.cos(yaw) + y*np.sin(yaw))
     y_g = -x_g_w*np.sin(yaw) + y_g_w*np.cos(yaw) + (x*np.sin(yaw) - y*np.cos(yaw))
-    
 
     # 4. Calculate the curvature = 1/r = 2x/l^2
     # The curvature is transformed into steering wheel angle and published to the 'drive_param' topic.
@@ -161,6 +169,7 @@ def path_callback(msg):
     global path_points
     if (not path_points) or rospy.get_param('/pure_pursuit_node/dynamic_path',False):
         path_points = [(float(pose.pose.position.x), float(pose.pose.position.y)) for pose in msg.poses]
+        print("updated path_points")
     
 if __name__ == '__main__':
     global path_points

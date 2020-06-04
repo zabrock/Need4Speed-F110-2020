@@ -1,2 +1,2 @@
 waypoint_filename: better_filtered_waypoints.csv
-dynamic_path: false
+dynamic_path: true

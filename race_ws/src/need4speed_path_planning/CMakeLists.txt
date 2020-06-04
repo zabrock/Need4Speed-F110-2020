@@ -212,3 +212,6 @@ include_directories(
 
 add_executable(rrt src/rrt.cpp)
 target_link_libraries(rrt ${catkin_LIBRARIES})
+
+add_executable(rrtstar src/rrtstar.cpp)
+target_link_libraries(rrtstar ${catkin_LIBRARIES})
