@@ -7,7 +7,6 @@ Panels:
         - /Global Options1
         - /Status1
         - /Obstacle_array1
-        - /MarkerArray1
         - /RobotModel1
         - /Path1
         - /Path2
@@ -73,9 +72,9 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 14.588998794555664
+      Max Intensity: 11.897905349731445
       Min Color: 0; 0; 225
-      Min Intensity: 1.3054490089416504
+      Min Intensity: 1.3246322870254517
       Name: LaserScan
       Position Transformer: XYZ
       Queue Size: 10
@@ -94,14 +93,6 @@ Visualization Manager:
       Name: Obstacle_array
       Namespaces:
         {}
-      Queue Size: 100
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /visualization_all_gaps
-      Name: MarkerArray
-      Namespaces:
-        "": true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -243,6 +234,14 @@ Visualization Manager:
       Topic: /rrt_path
       Unreliable: false
       Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /time_marker
+      Name: Marker
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -271,25 +270,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 16.170629501342773
+      Distance: 48.24211120605469
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 7.867982387542725
-        Y: -1.2904870510101318
-        Z: 3.4481701850891113
+        X: -6.307225227355957
+        Y: -10.575117111206055
+        Z: 0.8144026398658752
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.4197964668273926
+      Pitch: 1.3597965240478516
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.808584690093994
+      Yaw: 3.1085803508758545
     Saved: ~
 Window Geometry:
   Displays:
